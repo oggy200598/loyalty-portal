@@ -1,0 +1,602 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model addresses {
+  id             BigInt   @id @default(autoincrement())
+  user_id        String   @unique(map: "uq_addresses_one_default_per_user", where: raw("(is_default = true)")) @db.Uuid
+  receiver_name  String   @db.VarChar(255)
+  phone          String   @db.VarChar(20)
+  province       String   @db.VarChar(100)
+  district       String   @db.VarChar(100)
+  ward           String   @db.VarChar(100)
+  address_detail String
+  is_default     Boolean  @default(false)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  users          users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders         orders[]
+
+  @@index([user_id], map: "idx_addresses_user_id")
+}
+
+model audit_logs {
+  id          BigInt   @id @default(autoincrement())
+  user_id     String?  @db.Uuid
+  action      String   @db.VarChar(100)
+  entity_type String   @db.VarChar(100)
+  entity_id   BigInt?
+  old_data    Json?
+  new_data    Json?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  users       users?   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([entity_type, entity_id], map: "idx_audit_logs_entity")
+  @@index([user_id], map: "idx_audit_logs_user_id")
+}
+
+model buyer_features {
+  id                  BigInt   @id @default(autoincrement())
+  buyer_id            String   @db.Uuid
+  feature_date        DateTime @db.Date
+  cancel_rate         Decimal  @default(0) @db.Decimal(8, 5)
+  return_rate         Decimal  @default(0) @db.Decimal(8, 5)
+  failure_rate        Decimal  @default(0) @db.Decimal(8, 5)
+  non_receive_rate    Decimal  @default(0) @db.Decimal(8, 5)
+  total_order_value   Decimal  @default(0) @db.Decimal(15, 2)
+  average_order_value Decimal  @default(0) @db.Decimal(15, 2)
+  orders_last_7_days  Int      @default(0)
+  orders_last_30_days Int      @default(0)
+  avg_order_interval  Decimal  @default(0) @db.Decimal(10, 2)
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+  users               users    @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([buyer_id, feature_date])
+  @@index([buyer_id, feature_date(sort: Desc)], map: "idx_buyer_features_buyer_date")
+}
+
+model buyer_profiles {
+  id                  BigInt    @id @default(autoincrement())
+  buyer_id            String    @unique @db.Uuid
+  total_orders        Int       @default(0)
+  completed_orders    Int       @default(0)
+  cancelled_orders    Int       @default(0)
+  returned_orders     Int       @default(0)
+  failed_orders       Int       @default(0)
+  non_received_orders Int       @default(0)
+  total_spent         Decimal   @default(0) @db.Decimal(15, 2)
+  average_order_value Decimal   @default(0) @db.Decimal(15, 2)
+  first_order_at      DateTime? @db.Timestamptz(6)
+  last_order_at       DateTime? @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+  users               users     @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cart_items {
+  id               BigInt            @id @default(autoincrement())
+  cart_id          BigInt
+  product_id       BigInt
+  variant_id       BigInt?
+  quantity         Int               @default(1)
+  price            Decimal           @db.Decimal(15, 2)
+  carts            carts             @relation(fields: [cart_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products         products          @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
+
+  @@index([cart_id], map: "idx_cart_items_cart_id")
+  @@index([product_id], map: "idx_cart_items_product_id")
+}
+
+model carts {
+  id         BigInt       @id @default(autoincrement())
+  user_id    String       @unique(map: "uq_carts_user_id") @db.Uuid
+  created_at DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at DateTime     @default(now()) @db.Timestamptz(6)
+  cart_items cart_items[]
+  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model categories {
+  id               BigInt          @id @default(autoincrement())
+  parent_id        BigInt?
+  name             String          @db.VarChar(255)
+  description      String?
+  status           category_status @default(ACTIVE)
+  categories       categories?     @relation("categoriesTocategories", fields: [parent_id], references: [id], onUpdate: NoAction)
+  other_categories categories[]    @relation("categoriesTocategories")
+  products         products[]
+
+  @@index([parent_id], map: "idx_categories_parent_id")
+}
+
+model ml_models {
+  id               BigInt             @id @default(autoincrement())
+  model_name       String             @unique(map: "uq_ml_models_active_per_name", where: raw("(is_active = true)")) @db.VarChar(100)
+  algorithm        String             @db.VarChar(100)
+  version          String             @db.VarChar(50)
+  accuracy         Decimal?           @db.Decimal(8, 5)
+  precision_score  Decimal?           @db.Decimal(8, 5)
+  recall_score     Decimal?           @db.Decimal(8, 5)
+  f1_score         Decimal?           @db.Decimal(8, 5)
+  roc_auc          Decimal?           @db.Decimal(8, 5)
+  model_path       String?
+  is_active        Boolean            @default(false)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  ml_training_runs ml_training_runs[]
+  risk_predictions risk_predictions[]
+
+  @@unique([model_name, version])
+}
+
+model ml_training_runs {
+  id                BigInt              @id @default(autoincrement())
+  model_id          BigInt
+  dataset_version   String?             @db.VarChar(100)
+  feature_date_from DateTime?           @db.Date
+  feature_date_to   DateTime?           @db.Date
+  training_samples  Int?
+  testing_samples   Int?
+  started_at        DateTime?           @db.Timestamptz(6)
+  completed_at      DateTime?           @db.Timestamptz(6)
+  status            training_run_status @default(RUNNING)
+  ml_models         ml_models           @relation(fields: [model_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([model_id], map: "idx_ml_training_runs_model_id")
+}
+
+model notifications {
+  id             BigInt            @id @default(autoincrement())
+  user_id        String            @db.Uuid
+  title          String            @db.VarChar(255)
+  message        String
+  type           notification_type
+  reference_type String?           @db.VarChar(50)
+  reference_id   BigInt?
+  is_read        Boolean           @default(false)
+  created_at     DateTime          @default(now()) @db.Timestamptz(6)
+  users          users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([reference_type, reference_id], map: "idx_notifications_reference")
+  @@index([user_id, created_at(sort: Desc)], map: "idx_notifications_user_unread", where: raw("(is_read = false)"))
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_items {
+  id               BigInt            @id @default(autoincrement())
+  order_id         BigInt
+  product_id       BigInt
+  variant_id       BigInt?
+  product_name     String            @db.VarChar(255)
+  quantity         Int
+  unit_price       Decimal           @db.Decimal(15, 2)
+  subtotal         Decimal           @db.Decimal(15, 2)
+  orders           orders            @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products         products          @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_order_items_order_id")
+  @@index([product_id], map: "idx_order_items_product_id")
+}
+
+model order_status_history {
+  id         BigInt        @id @default(autoincrement())
+  order_id   BigInt
+  old_status order_status?
+  new_status order_status
+  changed_by String?       @db.Uuid
+  created_at DateTime      @default(now()) @db.Timestamptz(6)
+  users      users?        @relation(fields: [changed_by], references: [id], onUpdate: NoAction)
+  orders     orders        @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_order_status_history_order_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model orders {
+  id                      BigInt                 @id @default(autoincrement())
+  order_code              String                 @unique @db.VarChar(50)
+  buyer_id                String                 @db.Uuid
+  shop_id                 BigInt
+  shipping_address_id     BigInt?
+  shipping_receiver_name  String                 @db.VarChar(255)
+  shipping_phone          String                 @db.VarChar(20)
+  shipping_province       String                 @db.VarChar(100)
+  shipping_district       String                 @db.VarChar(100)
+  shipping_ward           String                 @db.VarChar(100)
+  shipping_address_detail String
+  subtotal                Decimal                @db.Decimal(15, 2)
+  shipping_fee            Decimal                @default(0) @db.Decimal(15, 2)
+  discount_amount         Decimal                @default(0) @db.Decimal(15, 2)
+  total_amount            Decimal                @db.Decimal(15, 2)
+  status                  order_status           @default(PENDING)
+  payment_status          payment_status         @default(UNPAID)
+  created_at              DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime               @default(now()) @db.Timestamptz(6)
+  order_items             order_items[]
+  order_status_history    order_status_history[]
+  users                   users                  @relation(fields: [buyer_id], references: [id], onUpdate: NoAction)
+  addresses               addresses?             @relation(fields: [shipping_address_id], references: [id], onUpdate: NoAction)
+  shops                   shops                  @relation(fields: [shop_id], references: [id], onUpdate: NoAction)
+  payments                payments[]
+  returns                 returns[]
+  reviews                 reviews[]
+  risk_predictions        risk_predictions[]
+  shipments               shipments[]
+
+  @@index([buyer_id, created_at(sort: Desc)], map: "idx_orders_buyer_created")
+  @@index([buyer_id], map: "idx_orders_buyer_id")
+  @@index([shop_id], map: "idx_orders_shop_id")
+  @@index([status], map: "idx_orders_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payments {
+  id               BigInt         @id @default(autoincrement())
+  order_id         BigInt
+  method           payment_method
+  amount           Decimal        @db.Decimal(15, 2)
+  status           payment_status @default(UNPAID)
+  transaction_code String?        @db.VarChar(100)
+  paid_at          DateTime?      @db.Timestamptz(6)
+  orders           orders         @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_payments_order_id")
+}
+
+model product_images {
+  id         BigInt   @id @default(autoincrement())
+  product_id BigInt   @unique(map: "uq_product_images_one_primary", where: raw("(is_primary = true)"))
+  image_url  String
+  is_primary Boolean  @default(false)
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([product_id], map: "idx_product_images_product_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_variants {
+  id             BigInt        @id @default(autoincrement())
+  product_id     BigInt
+  variant_name   String        @db.VarChar(255)
+  price          Decimal       @db.Decimal(15, 2)
+  stock_quantity Int           @default(0)
+  cart_items     cart_items[]
+  order_items    order_items[]
+  products       products      @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([product_id], map: "idx_product_variants_product_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model products {
+  id               BigInt             @id @default(autoincrement())
+  shop_id          BigInt
+  category_id      BigInt?
+  name             String             @db.VarChar(255)
+  description      String?
+  price            Decimal            @db.Decimal(15, 2)
+  stock_quantity   Int                @default(0)
+  status           product_status     @default(ACTIVE)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  cart_items       cart_items[]
+  order_items      order_items[]
+  product_images   product_images?
+  product_variants product_variants[]
+  categories       categories?        @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+  shops            shops              @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reviews          reviews[]
+  wishlist_items   wishlist_items[]
+
+  @@index([category_id], map: "idx_products_category_id")
+  @@index([shop_id], map: "idx_products_shop_id")
+}
+
+model recommendation_actions {
+  id                BigInt          @id @default(autoincrement())
+  recommendation_id BigInt
+  seller_id         String          @db.Uuid
+  decision          seller_decision
+  note              String?
+  created_at        DateTime        @default(now()) @db.Timestamptz(6)
+  recommendations   recommendations @relation(fields: [recommendation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users             users           @relation(fields: [seller_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([recommendation_id], map: "idx_recommendation_actions_rec_id")
+}
+
+model recommendations {
+  id                     BigInt                     @id @default(autoincrement())
+  prediction_id          BigInt
+  action_type            recommendation_action_type
+  title                  String                     @db.VarChar(255)
+  description            String?
+  created_at             DateTime                   @default(now()) @db.Timestamptz(6)
+  recommendation_actions recommendation_actions[]
+  risk_predictions       risk_predictions           @relation(fields: [prediction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([prediction_id], map: "idx_recommendations_prediction_id")
+}
+
+model returns {
+  id           BigInt        @id @default(autoincrement())
+  order_id     BigInt
+  reason       String
+  status       return_status @default(REQUESTED)
+  requested_at DateTime      @default(now()) @db.Timestamptz(6)
+  processed_at DateTime?     @db.Timestamptz(6)
+  orders       orders        @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_returns_order_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reviews {
+  id         BigInt   @id @default(autoincrement())
+  order_id   BigInt
+  product_id BigInt
+  buyer_id   String   @db.Uuid
+  rating     Int
+  comment    String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([order_id, product_id, buyer_id])
+  @@index([buyer_id], map: "idx_reviews_buyer_id")
+  @@index([product_id], map: "idx_reviews_product_id")
+}
+
+model risk_explanations {
+  id               BigInt            @id @default(autoincrement())
+  prediction_id    BigInt
+  feature_name     String            @db.VarChar(100)
+  feature_value    Decimal?          @db.Decimal(15, 5)
+  impact_value     Decimal?          @db.Decimal(15, 5)
+  impact_direction impact_direction?
+  description      String?
+  risk_predictions risk_predictions  @relation(fields: [prediction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([prediction_id], map: "idx_risk_explanations_prediction_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model risk_predictions {
+  id                BigInt              @id @default(autoincrement())
+  buyer_id          String              @db.Uuid
+  order_id          BigInt?
+  model_id          BigInt
+  risk_probability  Decimal             @db.Decimal(8, 5)
+  risk_score        Decimal             @db.Decimal(5, 2)
+  risk_level        risk_level
+  predicted_at      DateTime            @default(now()) @db.Timestamptz(6)
+  recommendations   recommendations[]
+  risk_explanations risk_explanations[]
+  users             users               @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  ml_models         ml_models           @relation(fields: [model_id], references: [id], onUpdate: NoAction)
+  orders            orders?             @relation(fields: [order_id], references: [id], onUpdate: NoAction)
+
+  @@index([buyer_id, predicted_at(sort: Desc)], map: "idx_risk_predictions_buyer_time")
+  @@index([order_id], map: "idx_risk_predictions_order_id")
+}
+
+model roles {
+  id         BigInt       @id @default(autoincrement())
+  name       String       @unique @db.VarChar(50)
+  user_roles user_roles[]
+}
+
+model shipments {
+  id            BigInt          @id @default(autoincrement())
+  order_id      BigInt
+  carrier       String          @db.VarChar(100)
+  tracking_code String?         @db.VarChar(100)
+  status        shipment_status @default(PENDING)
+  shipped_at    DateTime?       @db.Timestamptz(6)
+  delivered_at  DateTime?       @db.Timestamptz(6)
+  orders        orders          @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_shipments_order_id")
+}
+
+model shop_members {
+  shop_id    BigInt
+  user_id    String   @db.Uuid
+  role       String   @db.VarChar(50)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  shops      shops    @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([shop_id, user_id])
+  @@index([user_id], map: "idx_shop_members_user_id")
+}
+
+model shops {
+  id           BigInt         @id @default(autoincrement())
+  owner_id     String         @db.Uuid
+  name         String         @db.VarChar(255)
+  description  String?
+  logo_url     String?
+  status       shop_status    @default(ACTIVE)
+  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime       @default(now()) @db.Timestamptz(6)
+  orders       orders[]
+  products     products[]
+  shop_members shop_members[]
+  users        users          @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([owner_id], map: "idx_shops_owner_id")
+}
+
+model user_roles {
+  user_id String @db.Uuid
+  role_id BigInt
+  roles   roles  @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users   users  @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, role_id])
+}
+
+model users {
+  id                     String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email                  String                   @unique @db.VarChar(255)
+  password_hash          String                   @db.VarChar(255)
+  full_name              String?                  @db.VarChar(255)
+  phone                  String?                  @db.VarChar(20)
+  avatar_url             String?
+  status                 user_status              @default(ACTIVE)
+  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
+  addresses              addresses?
+  audit_logs             audit_logs[]
+  buyer_features         buyer_features[]
+  buyer_profiles         buyer_profiles?
+  carts                  carts?
+  notifications          notifications[]
+  order_status_history   order_status_history[]
+  orders                 orders[]
+  recommendation_actions recommendation_actions[]
+  reviews                reviews[]
+  risk_predictions       risk_predictions[]
+  shop_members           shop_members[]
+  shops                  shops[]
+  user_roles             user_roles[]
+  wishlists              wishlists[]
+}
+
+model wishlist_items {
+  wishlist_id BigInt
+  product_id  BigInt
+  products    products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  wishlists   wishlists @relation(fields: [wishlist_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([wishlist_id, product_id])
+}
+
+model wishlists {
+  id             BigInt           @id @default(autoincrement())
+  user_id        String           @db.Uuid
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  wishlist_items wishlist_items[]
+  users          users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_wishlists_user_id")
+}
+
+enum category_status {
+  ACTIVE
+  INACTIVE
+}
+
+enum impact_direction {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+
+enum notification_type {
+  ORDER_UPDATE
+  RISK_ALERT
+  PROMOTION
+  SYSTEM
+}
+
+enum order_status {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPING
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  RETURNED
+  FAILED
+  NON_RECEIVED
+}
+
+enum payment_method {
+  COD
+  BANK_TRANSFER
+  CREDIT_CARD
+  E_WALLET
+}
+
+enum payment_status {
+  UNPAID
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FAILED
+}
+
+enum product_status {
+  ACTIVE
+  OUT_OF_STOCK
+  HIDDEN
+  DELETED
+}
+
+enum recommendation_action_type {
+  REQUIRE_PREPAYMENT
+  FLAG_FOR_REVIEW
+  LIMIT_COD
+  BLOCK_BUYER
+  SEND_WARNING
+  NO_ACTION
+}
+
+enum return_status {
+  REQUESTED
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum risk_level {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum seller_decision {
+  IGNORED
+  CANCELLED
+  REQUIRE_PREPAYMENT
+  BLOCKED_BUYER
+  CONTACTED_BUYER
+}
+
+enum shipment_status {
+  PENDING
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  FAILED_DELIVERY
+  RETURNED_TO_SHOP
+}
+
+enum shop_status {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum training_run_status {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum user_status {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}

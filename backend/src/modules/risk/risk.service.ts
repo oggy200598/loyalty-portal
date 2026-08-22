@@ -1,0 +1,194 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../database/prisma/prisma.service';
+import { serialize } from '../../common/serialize';
+
+@Injectable()
+export class RiskService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getOverview() {
+    const [total, counts, latest] = await Promise.all([
+      this.prisma.risk_predictions.count(),
+      this.prisma.risk_predictions.groupBy({
+        by: ['risk_level'],
+        _count: { _all: true },
+      }),
+      this.prisma.risk_predictions.findFirst({
+        orderBy: { predicted_at: 'desc' },
+        include: {
+          ml_models: true,
+          risk_explanations: true,
+          recommendations: {
+            include: {
+              recommendation_actions: {
+                orderBy: { created_at: 'desc' },
+                take: 1,
+              },
+            },
+            orderBy: { created_at: 'desc' },
+            take: 1,
+          },
+          orders: true,
+          users: { select: { id: true, full_name: true, email: true } },
+        },
+      }),
+    ]);
+
+    const byLevel = counts.reduce((acc: Record<string, number>, item: any) => {
+      acc[item.risk_level] = item._count._all;
+      return acc;
+    }, {});
+
+    return serialize({
+      totalScoredBuyers: total,
+      levels: {
+        LOW: byLevel.LOW ?? 0,
+        MEDIUM: byLevel.MEDIUM ?? 0,
+        HIGH: byLevel.HIGH ?? 0,
+        CRITICAL: byLevel.CRITICAL ?? 0,
+      },
+      latest: latest
+        ? {
+            id: latest.id,
+            buyerId: latest.buyer_id,
+            buyer: latest.users,
+            orderId: latest.order_id,
+            riskScore: latest.risk_score,
+            riskProbability: latest.risk_probability,
+            riskLevel: latest.risk_level,
+            predictedAt: latest.predicted_at,
+            model: latest.ml_models
+              ? {
+                  id: latest.ml_models.id,
+                  modelName: latest.ml_models.model_name,
+                  version: latest.ml_models.version,
+                  isActive: latest.ml_models.is_active,
+                }
+              : null,
+            explanations: latest.risk_explanations.map((item) => ({
+              id: item.id,
+              featureName: item.feature_name,
+              featureValue: item.feature_value,
+              impactValue: item.impact_value,
+              impactDirection: item.impact_direction,
+              description: item.description,
+            })),
+            recommendation: latest.recommendations[0]
+              ? {
+                  id: latest.recommendations[0].id,
+                  title: latest.recommendations[0].title,
+                  description: latest.recommendations[0].description,
+                  actionType: latest.recommendations[0].action_type,
+                  latestAction: latest.recommendations[0].recommendation_actions[0]
+                    ? {
+                        decision: latest.recommendations[0].recommendation_actions[0].decision,
+                        note: latest.recommendations[0].recommendation_actions[0].note,
+                        createdAt:
+                          latest.recommendations[0].recommendation_actions[0].created_at,
+                      }
+                    : null,
+                }
+              : null,
+          }
+        : null,
+    });
+  }
+
+  async getLatest() {
+    const latest = await this.prisma.risk_predictions.findFirst({
+      orderBy: { predicted_at: 'desc' },
+      include: {
+        ml_models: true,
+        risk_explanations: true,
+        recommendations: {
+          include: {
+            recommendation_actions: {
+              orderBy: { created_at: 'desc' },
+              take: 1,
+            },
+          },
+          orderBy: { created_at: 'desc' },
+          take: 1,
+        },
+        users: { select: { id: true, full_name: true, email: true } },
+      },
+    });
+
+    return serialize(latest);
+  }
+
+  async getLatestByBuyerId(buyerId: string) {
+    const latest = await this.prisma.risk_predictions.findFirst({
+      where: { buyer_id: buyerId },
+      orderBy: { predicted_at: 'desc' },
+      include: {
+        ml_models: true,
+        risk_explanations: true,
+        recommendations: {
+          include: {
+            recommendation_actions: {
+              orderBy: { created_at: 'desc' },
+              take: 1,
+            },
+          },
+          orderBy: { created_at: 'desc' },
+          take: 1,
+        },
+        users: { select: { id: true, full_name: true, email: true } },
+      },
+    });
+
+    return serialize(latest);
+  }
+
+  async getRecommendationsLatest() {
+    const recommendations = await this.prisma.recommendations.findMany({
+      orderBy: { created_at: 'desc' },
+      take: 1,
+      include: {
+        recommendation_actions: {
+          orderBy: { created_at: 'desc' },
+          take: 1,
+          include: {
+            users: { select: { id: true, full_name: true, email: true } },
+          },
+        },
+        risk_predictions: {
+          include: {
+            users: { select: { id: true, full_name: true, email: true } },
+          },
+        },
+      },
+    });
+
+    return serialize(
+      recommendations.map((item) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        actionType: item.action_type,
+        createdAt: item.created_at,
+        prediction: item.risk_predictions
+          ? {
+              id: item.risk_predictions.id,
+              buyerId: item.risk_predictions.buyer_id,
+              riskLevel: item.risk_predictions.risk_level,
+              riskScore: item.risk_predictions.risk_score,
+              riskProbability: item.risk_predictions.risk_probability,
+              predictedAt: item.risk_predictions.predicted_at,
+              buyer: item.risk_predictions.users,
+            }
+          : null,
+        latestAction: item.recommendation_actions[0]
+          ? {
+              id: item.recommendation_actions[0].id,
+              decision: item.recommendation_actions[0].decision,
+              note: item.recommendation_actions[0].note,
+              createdAt: item.recommendation_actions[0].created_at,
+              seller: item.recommendation_actions[0].users,
+            }
+          : null,
+      })),
+    );
+  }
+}

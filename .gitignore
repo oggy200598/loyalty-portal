@@ -1,0 +1,28 @@
+# Root ignores
+node_modules/
+dist/
+build/
+coverage/
+.env
+.env.*
+
+# App-level Node.js
+backend/my-nest-api/node_modules/
+backend/my-nest-api/dist/
+backend/generated/
+frontend/web/my-react-app/node_modules/
+frontend/web/my-react-app/dist/
+
+# Flutter
+frontend/mobile/my_flutter_app/.dart_tool/
+frontend/mobile/my_flutter_app/build/
+frontend/mobile/my_flutter_app/.flutter-plugins
+frontend/mobile/my_flutter_app/.flutter-plugins-dependencies
+frontend/mobile/my_flutter_app/.pub-cache/
+frontend/mobile/my_flutter_app/.pub/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+node_modules

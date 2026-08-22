@@ -1,0 +1,237 @@
+.page-shell {
+  min-height: 100svh;
+  background:
+    radial-gradient(circle at top left, rgba(249, 115, 22, 0.08), transparent 24%),
+    linear-gradient(180deg, #ffffff 0%, #fffaf7 100%);
+  color: #1f2937;
+}
+
+.page-main {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+
+.site-header {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 18px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  background: #ffffff;
+}
+
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #fb923c, #f97316);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 8px 22px rgba(249, 115, 22, 0.2);
+}
+
+.brand strong {
+  color: #111827;
+}
+
+.brand span {
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+.site-nav a,
+.login-link {
+  color: #4b5563;
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: #f97316;
+}
+
+.login-link {
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #ea580c;
+}
+
+.hero,
+.section,
+.stat-card,
+.product-card,
+.risk-card,
+.recommendation-card,
+.state-card,
+.hero-panel {
+  border: 1px solid #f1f5f9;
+  background: #ffffff;
+  backdrop-filter: none;
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.06);
+}
+
+.hero {
+  margin-top: 8px;
+  border-radius: 28px;
+  padding: 34px;
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr;
+  gap: 24px;
+}
+
+.hero h1 {
+  color: #111827;
+}
+
+.hero-subtitle,
+.section-description,
+.muted,
+.compact-dl dd,
+.recommendation-card p,
+.product-meta,
+.site-footer p {
+  color: #6b7280;
+}
+
+.eyebrow {
+  color: #f97316;
+}
+
+.hero-badges > div {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #fff7ed;
+  border: 1px solid #ffedd5;
+  min-width: 150px;
+}
+
+.hero-badges span,
+.compact-dl dt,
+.product-topline span,
+.stat-card span,
+.risk-tile span,
+.recommendation-header span,
+.recommendation-footer span,
+.risk-card-meta p,
+.site-footer span {
+  display: block;
+  color: #9ca3af;
+  font-size: 0.86rem;
+}
+
+.hero-badges strong {
+  color: #111827;
+}
+
+.hero-panel {
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.risk-score-display strong {
+  color: #111827;
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.risk-score-display span {
+  color: #f97316;
+  font-weight: 700;
+}
+
+.section {
+  margin-top: 22px;
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.section h2 {
+  color: #111827;
+}
+
+.stat-card,
+.risk-tile,
+.flow-step {
+  border-radius: 18px;
+  padding: 18px;
+  background: #fafafa;
+  border: 1px solid #f3f4f6;
+}
+
+.stat-card strong,
+.risk-tile strong {
+  color: #111827;
+}
+
+.product-card {
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.product-card:hover,
+.stat-card:hover,
+.risk-card:hover,
+.recommendation-card:hover {
+  border-color: #fed7aa;
+  box-shadow: 0 16px 35px rgba(249, 115, 22, 0.08);
+  transform: translateY(-2px);
+  transition: 0.2s ease;
+}
+
+.product-image-wrap {
+  background: #f8fafc;
+}
+
+.product-body h3 {
+  color: #111827;
+}
+
+.flow-step {
+  color: #374151;
+}
+
+.risk-card,
+.recommendation-card {
+  border-radius: 22px;
+  padding: 22px;
+}
+
+.risk-card-main span,
+.recommendation-card span {
+  display: block;
+  margin-bottom: 8px;
+  color: #9ca3af;
+}
+
+.risk-card-main strong,
+.recommendation-card strong {
+  color: #111827;
+}
+
+.explanation-item {
+  padding: 16px;
+  border-radius: 16px;
+  background: #fafafa;
+  border: 1px solid #f3f4f6;
+}
+
+.site-footer {
+  width: min(1180px, calc(100% - 32px));
+  margin: 18px auto 0;
+  padding: 24px 0 36px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  color: #6b7280;
+}
+
+.site-footer strong {
+  color: #111827;
+}
