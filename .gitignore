@@ -20,6 +20,14 @@ frontend/mobile/my_flutter_app/.flutter-plugins
 frontend/mobile/my_flutter_app/.flutter-plugins-dependencies
 frontend/mobile/my_flutter_app/.pub-cache/
 frontend/mobile/my_flutter_app/.pub/
+*.iml
+**/android/local.properties
+
+# ML service
+ml-service/__pycache__/
+ml-service/model.joblib
+ml-service/feature_importance.json
+ml-service/venv/
 
 # IDE / OS
 .vscode/

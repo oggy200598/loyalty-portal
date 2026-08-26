@@ -1,10 +1,14 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../../auth/auth.module';
 import { RiskController } from './risk.controller';
 import { RiskService } from './risk.service';
+import { RiskScoringController } from './risk-scoring.controller';
+import { RiskScoringService } from './risk-scoring.service';
 
 @Module({
-  controllers: [RiskController],
-  providers: [RiskService],
-  exports: [RiskService],
+  imports: [AuthModule],
+  controllers: [RiskController, RiskScoringController],
+  providers: [RiskService, RiskScoringService],
+  exports: [RiskService, RiskScoringService],
 })
 export class RiskModule {}

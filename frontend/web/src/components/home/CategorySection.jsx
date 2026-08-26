@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../services/api';
 function CategorySection() {
   const [categories, setCategories] = useState([]);
@@ -198,9 +199,9 @@ function CategorySection() {
         {!loading && !error && categories.length > 0 && (
           <div className="rm-category-grid">
             {categories.map((category, index) => (
-              <a
+              <Link
                 key={category.id}
-                href={`#category-${category.id}`}
+                to={`/categories/${category.id}`}
                 className="rm-category-item"
               >
                 <div className="rm-category-icon">
@@ -228,7 +229,7 @@ function CategorySection() {
                     {category.productCount} sản phẩm
                   </div>
                 )}
-              </a>
+              </Link>
             ))}
           </div>
         )}

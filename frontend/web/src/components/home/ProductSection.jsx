@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 function formatCurrency(value) {
   if (value === null || value === undefined) return '---';
 
@@ -12,7 +14,9 @@ function formatSold(value) {
   const sold = Number(value ?? 0);
 
   if (sold >= 1_000_000) {
-    return `${(sold / 1_000_000).toFixed(1).replace('.0', '')}tr+`;
+    return `${(sold / 1_000_000)
+      .toFixed(1)
+      .replace('.0', '')}tr+`;
   }
 
   if (sold >= 1000) {
@@ -22,12 +26,54 @@ function formatSold(value) {
   return sold;
 }
 
+function getCouponLabel(coupon) {
+  if (coupon.discountType === 'FREE_SHIP') {
+    return 'Freeship';
+  }
+
+  if (coupon.discountType === 'PERCENT') {
+    return `Giảm ${coupon.discountValue}%`;
+  }
+
+  if (coupon.discountType === 'FIXED') {
+    return `Giảm ${formatCurrency(coupon.discountValue)}`;
+  }
+
+  return 'Ưu đãi';
+}
+
+function getCouponTitle(coupon) {
+  if (coupon.discountType === 'FREE_SHIP') {
+    return `${coupon.name} - Đơn từ ${formatCurrency(
+      coupon.minOrderValue,
+    )}`;
+  }
+
+  if (coupon.discountType === 'PERCENT') {
+    return `${coupon.name} - Đơn từ ${formatCurrency(
+      coupon.minOrderValue,
+    )}${
+      coupon.maxDiscount
+        ? ` - Tối đa ${formatCurrency(coupon.maxDiscount)}`
+        : ''
+    }`;
+  }
+
+  if (coupon.discountType === 'FIXED') {
+    return `${coupon.name} - Đơn từ ${formatCurrency(
+      coupon.minOrderValue,
+    )}`;
+  }
+
+  return coupon.name;
+}
+
 function ProductSection({ products, loading, error }) {
   return (
     <>
       <style>{`
         /* =========================================
-           PRODUCT SECTION - SHOPEE STYLE
+           PRODUCT SECTION
         ========================================= */
 
         .rm-product-section {
@@ -63,12 +109,6 @@ function ProductSection({ products, loading, error }) {
           font-size: 17px;
           font-weight: 500;
           text-transform: uppercase;
-        }
-
-        .rm-product-subtitle {
-          margin: 0;
-          color: #757575;
-          font-size: 13px;
         }
 
         .rm-product-view-all {
@@ -152,7 +192,7 @@ function ProductSection({ products, loading, error }) {
         }
 
         /* =========================================
-           DISCOUNT BADGE
+           DISCOUNT
         ========================================= */
 
         .rm-discount-badge {
@@ -160,18 +200,14 @@ function ProductSection({ products, loading, error }) {
           top: 0;
           right: 0;
           z-index: 3;
-
           min-width: 42px;
           padding: 3px 5px;
-
           background: #fff3ef;
           color: #ee4d2d;
-
           font-size: 12px;
           font-weight: 500;
           line-height: 1.25;
           text-align: center;
-
           border-bottom-left-radius: 4px;
         }
 
@@ -180,9 +216,8 @@ function ProductSection({ products, loading, error }) {
         ========================================= */
 
         .rm-product-content {
-          min-height: 152px;
+          min-height: 185px;
           padding: 8px;
-
           display: flex;
           flex-direction: column;
           justify-content: space-between;
@@ -191,7 +226,6 @@ function ProductSection({ products, loading, error }) {
         .rm-product-name {
           min-height: 40px;
           margin: 0;
-
           color: #333;
           font-size: 14px;
           line-height: 1.4;
@@ -204,13 +238,50 @@ function ProductSection({ products, loading, error }) {
         }
 
         /* =========================================
-           PROMOTION TAG
+           COUPON
+        ========================================= */
+
+        .rm-product-coupon-row {
+          min-height: 20px;
+          margin-top: 7px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          overflow: hidden;
+        }
+
+        .rm-product-coupon {
+          flex-shrink: 0;
+          max-width: 100%;
+          padding: 2px 5px;
+
+          color: #ee4d2d;
+          background: #fff7f5;
+
+          border: 1px solid #ee4d2d;
+          border-radius: 2px;
+
+          font-size: 10px;
+          line-height: 1.25;
+
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .rm-product-coupon.ship {
+          color: #009688;
+          border-color: #009688;
+          background: #f0fbf9;
+        }
+
+        /* =========================================
+           TAG
         ========================================= */
 
         .rm-product-tag-row {
           min-height: 20px;
           margin-top: 6px;
-
           display: flex;
           align-items: center;
           gap: 4px;
@@ -220,16 +291,12 @@ function ProductSection({ products, loading, error }) {
         .rm-product-tag {
           max-width: 100%;
           padding: 2px 5px;
-
           color: #ee4d2d;
           background: #fff;
-
           border: 1px solid #ee4d2d;
           border-radius: 2px;
-
           font-size: 10px;
           line-height: 1.2;
-
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -242,12 +309,24 @@ function ProductSection({ products, loading, error }) {
         }
 
         /* =========================================
+           SHOP
+        ========================================= */
+
+        .rm-product-shop {
+          margin-top: 5px;
+          color: #888;
+          font-size: 11px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* =========================================
            PRICE + SOLD
         ========================================= */
 
         .rm-product-bottom {
           margin-top: 12px;
-
           display: flex;
           align-items: baseline;
           justify-content: space-between;
@@ -256,7 +335,6 @@ function ProductSection({ products, loading, error }) {
 
         .rm-product-price {
           min-width: 0;
-
           color: #ee4d2d;
           font-size: 17px;
           font-weight: 500;
@@ -269,7 +347,6 @@ function ProductSection({ products, loading, error }) {
 
         .rm-product-sold {
           flex-shrink: 0;
-
           color: #666;
           font-size: 12px;
           line-height: 1.2;
@@ -277,22 +354,7 @@ function ProductSection({ products, loading, error }) {
         }
 
         /* =========================================
-           SHOP
-        ========================================= */
-
-        .rm-product-shop {
-          margin-top: 5px;
-
-          color: #888;
-          font-size: 11px;
-
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        /* =========================================
-           BADGE MALL
+           MALL
         ========================================= */
 
         .rm-product-mall {
@@ -300,20 +362,16 @@ function ProductSection({ products, loading, error }) {
           top: 8px;
           left: 0;
           z-index: 4;
-
           padding: 3px 6px;
-
           color: #fff;
           background: #d0011b;
-
           font-size: 10px;
           font-weight: 600;
-
           border-radius: 0 3px 3px 0;
         }
 
         /* =========================================
-           LOADING / ERROR
+           STATE
         ========================================= */
 
         .rm-product-state {
@@ -354,12 +412,8 @@ function ProductSection({ products, loading, error }) {
             padding: 0 12px;
           }
 
-          .rm-product-subtitle {
-            display: none;
-          }
-
           .rm-product-content {
-            min-height: 140px;
+            min-height: 175px;
             padding: 7px;
           }
 
@@ -376,15 +430,10 @@ function ProductSection({ products, loading, error }) {
           .rm-product-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
-
-          .rm-product-header-left {
-            gap: 0;
-          }
         }
       `}</style>
 
       <section className="rm-product-section" id="products">
-        {/* HEADER */}
         <div className="rm-product-header">
           <div className="rm-product-header-left">
             <h2 className="rm-product-title">
@@ -392,29 +441,26 @@ function ProductSection({ products, loading, error }) {
             </h2>
           </div>
 
-          <a
-            href="#products"
+          <Link
+            to="/products"
             className="rm-product-view-all"
           >
             Xem tất cả →
-          </a>
+          </Link>
         </div>
 
-        {/* LOADING */}
         {loading ? (
           <div className="rm-product-state">
             Đang tải sản phẩm...
           </div>
         ) : null}
 
-        {/* ERROR */}
         {error ? (
           <div className="rm-product-state error">
             {error}
           </div>
         ) : null}
 
-        {/* EMPTY */}
         {!loading &&
         !error &&
         (!products || products.length === 0) ? (
@@ -423,7 +469,6 @@ function ProductSection({ products, loading, error }) {
           </div>
         ) : null}
 
-        {/* PRODUCTS */}
         {!loading &&
         !error &&
         products?.length > 0 ? (
@@ -444,20 +489,32 @@ function ProductSection({ products, loading, error }) {
                 const variantCount =
                   product.variants?.length ?? 0;
 
+                const coupons =
+                  product.coupons ?? [];
+
+                const visibleCoupons =
+                  coupons.slice(0, 2);
+
                 const isHot = sold >= 100;
 
                 const discount =
-                  product.discountPercent !== null &&
-                  product.discountPercent !== undefined
+                  product.discountPercent !==
+                    null &&
+                  product.discountPercent !==
+                    undefined
                     ? product.discountPercent
                     : null;
 
                 return (
-                  <article
-                    className="rm-product-card"
-                    key={product.id}
-                  >
-                    {/* MALL */}
+                  <Link
+                  to={`/products/${product.id}`}
+                  className="rm-product-card"
+                  key={product.id}
+                  style={{
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
+                >
                     {product.shop?.name
                       ?.toLowerCase()
                       .includes('official') ? (
@@ -466,7 +523,6 @@ function ProductSection({ products, loading, error }) {
                       </div>
                     ) : null}
 
-                    {/* IMAGE */}
                     <div className="rm-product-image-wrap">
                       {image ? (
                         <img
@@ -488,7 +544,6 @@ function ProductSection({ products, loading, error }) {
                       ) : null}
                     </div>
 
-                    {/* BODY */}
                     <div className="rm-product-content">
                       <div>
                         <h3
@@ -498,30 +553,46 @@ function ProductSection({ products, loading, error }) {
                           {product.name}
                         </h3>
 
+                        {/* COUPON */}
+                        {visibleCoupons.length > 0 ? (
+                          <div className="rm-product-coupon-row">
+                            {visibleCoupons.map(
+                              (coupon) => (
+                                <span
+                                  key={coupon.id}
+                                  className={`rm-product-coupon ${
+                                    coupon.discountType ===
+                                    'FREE_SHIP'
+                                      ? 'ship'
+                                      : ''
+                                  }`}
+                                  title={getCouponTitle(
+                                    coupon,
+                                  )}
+                                >
+                                  {getCouponLabel(
+                                    coupon,
+                                  )}
+                                </span>
+                              ),
+                            )}
+                          </div>
+                        ) : null}
+
+                        {/* TAG */}
                         <div className="rm-product-tag-row">
                           {isHot ? (
                             <span className="rm-product-tag hot">
                               Đang bán chạy
                             </span>
-                          ) : variantCount > 0 ? (
-                            <span className="rm-product-tag">
-                              Nhiều phiên bản
-                            </span>
                           ) : null}
                         </div>
-
-                        <div
-                          className="rm-product-shop"
-                          title={product.shop?.name}
-                        >
-                          {product.shop?.name ??
-                            'Cửa hàng'}
-                        </div>
                       </div>
-
                       <div className="rm-product-bottom">
                         <span className="rm-product-price">
-                          {formatCurrency(product.price)}
+                          {formatCurrency(
+                            product.price,
+                          )}
                         </span>
 
                         <span className="rm-product-sold">
@@ -529,7 +600,7 @@ function ProductSection({ products, loading, error }) {
                         </span>
                       </div>
                     </div>
-                  </article>
+                  </Link>
                 );
               })}
             </div>

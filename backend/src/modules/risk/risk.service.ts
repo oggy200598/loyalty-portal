@@ -1,10 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma/prisma.service';
 import { serialize } from '../../common/serialize';
+import { ShopOwnershipService } from '../../common/shop-ownership.service';
 
 @Injectable()
 export class RiskService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly shopOwnership: ShopOwnershipService,
+  ) {}
 
   async getOverview() {
     const [total, counts, latest] = await Promise.all([
@@ -91,6 +95,65 @@ export class RiskService {
               : null,
           }
         : null,
+    });
+  }
+
+  /**
+   * Risk assessment theo ORDER (dùng cho Seller Portal).
+   *
+   * Quy tắc:
+   * - SELLER: chỉ được xem risk của order thuộc shop mình sở hữu.
+   *   Không có route xem risk profile độc lập của buyer.
+   * - BUYER: chỉ được xem risk của đơn hàng của chính mình.
+   * - ADMIN: xem tất cả.
+   */
+  async getRiskForOrder(
+    user: { id: string; role: string },
+    orderId: bigint,
+  ) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id: orderId },
+      select: { id: true, buyer_id: true, shop_id: true },
+    });
+    if (!order) {
+      throw new NotFoundException('Không tìm thấy đơn hàng');
+    }
+
+    if (user.role === 'SELLER') {
+      const isOwner = await this.shopOwnership.ownsShop(user.id, order.shop_id);
+      if (!isOwner) {
+        throw new ForbiddenException('Đơn hàng không thuộc shop của bạn');
+      }
+    } else if (user.role === 'BUYER') {
+      if (order.buyer_id !== user.id) {
+        throw new ForbiddenException('Bạn không có quyền xem risk của đơn hàng này');
+      }
+    }
+    // ADMIN: được xem tất cả
+
+    const prediction = await this.prisma.risk_predictions.findFirst({
+      where: { order_id: orderId },
+      orderBy: { predicted_at: 'desc' },
+      include: {
+        ml_models: true,
+        risk_explanations: true,
+        recommendations: {
+          include: {
+            recommendation_actions: {
+              orderBy: { created_at: 'desc' },
+              take: 1,
+            },
+          },
+          orderBy: { created_at: 'desc' },
+          take: 1,
+        },
+        users: { select: { id: true, full_name: true, email: true } },
+      },
+    });
+
+    return serialize({
+      order: { id: order.id, buyerId: order.buyer_id, shopId: order.shop_id },
+      prediction,
     });
   }
 
