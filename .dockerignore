@@ -1,0 +1,17 @@
+**/node_modules
+**/.next
+**/.local
+**/dist
+**/build
+**/coverage
+**/.env
+**/.env.*
+.env*
+.git
+.venv
+**/__pycache__
+backend/generated
+frontend/mobile
+ml/data
+**/*.docx
+**/models/*.joblib

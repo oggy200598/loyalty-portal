@@ -1,25 +1,17 @@
-"""Cấu hình kết nối DB cho ML service."""
+"""Configuration shared with the backend; no database credential defaults."""
 import os
+import sys
+from pathlib import Path
+from dotenv import load_dotenv
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/ecommerce_risk",
-)
-
-# Ngưỡng phân loại risk level từ xác suất
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+load_dotenv(ROOT / 'backend' / '.env')
+from ml.features import FEATURE_COLUMNS, FEATURE_CONTRACT
+DATABASE_URL = os.environ.get('DATABASE_URL', '').split('?')[0]
+ML_SERVICE_TOKEN = os.environ.get('ML_SERVICE_TOKEN', '')
+MODEL_DIR = Path(__file__).resolve().parent / 'models'
 THRESHOLD_MEDIUM = 0.25
 THRESHOLD_HIGH = 0.50
 THRESHOLD_CRITICAL = 0.80
-
-# Các feature dùng để train/predict (khớp bảng buyer_features)
-FEATURE_COLUMNS = [
-    "cancel_rate",
-    "return_rate",
-    "failure_rate",
-    "non_receive_rate",
-    "total_order_value",
-    "average_order_value",
-    "orders_last_7_days",
-    "orders_last_30_days",
-    "avg_order_interval",
-]

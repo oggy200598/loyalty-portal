@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: riskmind
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SQLSERVER_AUTH
+        value: sql
+      - key: SQLSERVER_SERVER
+        sync: false
+      - key: SQLSERVER_DATABASE
+        sync: false
+      - key: SQLSERVER_USER
+        sync: false
+      - key: SQLSERVER_PASSWORD
+        sync: false
+      - key: SQLSERVER_PORT
+        value: "1433"
+      - key: SQLSERVER_TRUST_CERTIFICATE
+        value: "false"
+      - key: SQLSERVER_SKIP_DATABASE_CREATE
+        value: "true"
+      - key: DB_MIGRATE_ON_START
+        value: "true"
+      - key: MAIL_WORKER_ENABLED
+        value: "false"
+      - key: LOYALTY_WORKER_ENABLED
+        value: "false"
+      - key: REDIS_URL
+        value: ""

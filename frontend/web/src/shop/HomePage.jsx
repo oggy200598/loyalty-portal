@@ -1,0 +1,90 @@
+import { useEffect, useState } from 'react';
+import { api } from '../common/api';
+
+import Hero from './Hero';
+import CategorySection from './CategorySection';
+import ProductSection from './ProductSection';
+
+function HomePage() {
+  const [products, setProducts] = useState([]);
+  const [latestRisk] = useState(null);
+
+  const [state, setState] = useState({
+    loading: true,
+    error: null,
+  });
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      try {
+        setState({
+          loading: true,
+          error: null,
+        });
+
+        const [productData] = await Promise.all([
+          api.getProducts(36),
+        ]);
+
+        if (!active) return;
+
+        setProducts(
+          Array.isArray(productData)
+            ? productData
+            : [],
+        );
+
+        setState({
+          loading: false,
+          error: null,
+        });
+      } catch (error) {
+        if (!active) return;
+
+        setState({
+          loading: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Không thể tải dữ liệu',
+        });
+      }
+    }
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <div className="page-shell">
+      <Hero risk={latestRisk} />
+
+      <main
+        className="page-main"
+        style={{
+          width: 'min(1200px, calc(100% - 32px))',
+          margin: '0 auto',
+        }}
+      >
+        <CategorySection
+          products={products}
+          loading={state.loading}
+          error={state.error}
+        />
+
+        <ProductSection
+          products={products}
+          loading={state.loading}
+          error={state.error}
+        />
+      </main>
+    </div>
+  );
+}
+
+export default HomePage;

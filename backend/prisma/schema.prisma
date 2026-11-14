@@ -2,40 +2,52 @@ generator client {
   provider        = "prisma-client"
   output          = "../generated/prisma"
   moduleFormat = "cjs"
-  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlserver"
 }
 
 model addresses {
+  version        Int      @default(1)
   id             BigInt   @id @default(autoincrement())
-  user_id        String   @unique(map: "uq_addresses_one_default_per_user", where: raw("(is_default = true)")) @db.Uuid
-  receiver_name  String   @db.VarChar(255)
-  phone          String   @db.VarChar(20)
-  province       String   @db.VarChar(100)
-  district       String   @db.VarChar(100)
-  ward           String   @db.VarChar(100)
-  address_detail String
+  user_id        String   @db.UniqueIdentifier
+  receiver_name  String   @db.NVarChar(255)
+  phone          String   @db.NVarChar(20)
+  province       String   @db.NVarChar(100)
+  district       String   @db.NVarChar(100)
+  ward           String   @db.NVarChar(100)
+  address_detail String @db.NVarChar(Max)
   is_default     Boolean  @default(false)
-  created_at     DateTime @default(now()) @db.Timestamptz(6)
-  users          users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  created_at     DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  users          users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   orders         orders[]
 
   @@index([user_id], map: "idx_addresses_user_id")
 }
 
+model system_settings {
+  id                      Int      @id
+  store_name              String   @db.NVarChar(150)
+  support_email           String   @db.NVarChar(255)
+  support_phone           String   @db.NVarChar(20)
+  store_address           String   @db.NVarChar(500)
+  shipping_fee            Decimal  @db.Decimal(15, 2)
+  free_shipping_threshold Decimal  @db.Decimal(15, 2)
+  version                 Int      @default(1)
+  updated_at              DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+}
+
 model audit_logs {
   id          BigInt   @id @default(autoincrement())
-  user_id     String?  @db.Uuid
-  action      String   @db.VarChar(100)
-  entity_type String   @db.VarChar(100)
+  user_id     String?  @db.UniqueIdentifier
+  action      String   @db.NVarChar(100)
+  entity_type String   @db.NVarChar(100)
   entity_id   BigInt?
-  old_data    Json?
-  new_data    Json?
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-  users       users?   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  old_data    String? @db.NVarChar(Max)
+  new_data    String? @db.NVarChar(Max)
+  created_at  DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  users       users?   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([entity_type, entity_id], map: "idx_audit_logs_entity")
   @@index([user_id], map: "idx_audit_logs_user_id")
@@ -43,7 +55,7 @@ model audit_logs {
 
 model buyer_features {
   id                  BigInt   @id @default(autoincrement())
-  buyer_id            String   @db.Uuid
+  buyer_id            String   @db.UniqueIdentifier
   feature_date        DateTime @db.Date
   cancel_rate         Decimal  @default(0) @db.Decimal(8, 5)
   return_rate         Decimal  @default(0) @db.Decimal(8, 5)
@@ -54,8 +66,8 @@ model buyer_features {
   orders_last_7_days  Int      @default(0)
   orders_last_30_days Int      @default(0)
   avg_order_interval  Decimal  @default(0) @db.Decimal(10, 2)
-  created_at          DateTime @default(now()) @db.Timestamptz(6)
-  users               users    @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  created_at          DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  users               users    @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([buyer_id, feature_date])
   @@index([buyer_id, feature_date(sort: Desc)], map: "idx_buyer_features_buyer_date")
@@ -63,7 +75,7 @@ model buyer_features {
 
 model buyer_profiles {
   id                  BigInt    @id @default(autoincrement())
-  buyer_id            String    @unique @db.Uuid
+  buyer_id            String    @unique @db.UniqueIdentifier
   total_orders        Int       @default(0)
   completed_orders    Int       @default(0)
   cancelled_orders    Int       @default(0)
@@ -72,10 +84,10 @@ model buyer_profiles {
   non_received_orders Int       @default(0)
   total_spent         Decimal   @default(0) @db.Decimal(15, 2)
   average_order_value Decimal   @default(0) @db.Decimal(15, 2)
-  first_order_at      DateTime? @db.Timestamptz(6)
-  last_order_at       DateTime? @db.Timestamptz(6)
-  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
-  users               users     @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  first_order_at      DateTime? @db.DateTime2
+  last_order_at       DateTime? @db.DateTime2
+  updated_at          DateTime  @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  users               users     @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -86,30 +98,31 @@ model cart_items {
   variant_id       BigInt?
   quantity         Int               @default(1)
   price            Decimal           @db.Decimal(15, 2)
-  carts            carts             @relation(fields: [cart_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  products         products          @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  product_variants product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
+  carts            carts             @relation(fields: [cart_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products         products          @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
+  @@unique([cart_id, product_id, variant_id], map: "uq_cart_variant")
   @@index([cart_id], map: "idx_cart_items_cart_id")
   @@index([product_id], map: "idx_cart_items_product_id")
 }
 
 model carts {
   id         BigInt       @id @default(autoincrement())
-  user_id    String       @unique(map: "uq_carts_user_id") @db.Uuid
-  created_at DateTime     @default(now()) @db.Timestamptz(6)
-  updated_at DateTime     @default(now()) @db.Timestamptz(6)
+  user_id    String       @unique(map: "uq_carts_user_id") @db.UniqueIdentifier
+  created_at DateTime     @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  updated_at DateTime     @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
   cart_items cart_items[]
-  users      users        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users        @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model categories {
   id                BigInt              @id @default(autoincrement())
   parent_id         BigInt?
-  name              String              @db.VarChar(255)
-  description       String?
-  status            category_status     @default(ACTIVE)
-  categories        categories?         @relation("categoriesTocategories", fields: [parent_id], references: [id], onUpdate: NoAction)
+  name              String              @db.NVarChar(255)
+  description       String? @db.NVarChar(Max)
+  status            String @db.NVarChar(40)     @default("ACTIVE")
+  categories        categories?         @relation("categoriesTocategories", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   other_categories  categories[]        @relation("categoriesTocategories")
   coupon_categories coupon_categories[]
   products          products[]
@@ -120,8 +133,8 @@ model categories {
 model coupon_categories {
   coupon_id   BigInt
   category_id BigInt
-  categories  categories @relation(fields: [category_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  coupons     coupons    @relation(fields: [coupon_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  categories  categories @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  coupons     coupons    @relation(fields: [coupon_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([coupon_id, category_id])
   @@index([category_id], map: "idx_coupon_categories_category")
@@ -130,37 +143,38 @@ model coupon_categories {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model coupons {
   id                BigInt               @id @default(autoincrement())
-  code              String               @unique @db.VarChar(50)
-  name              String               @db.VarChar(255)
-  discount_type     coupon_discount_type
+  code              String               @unique @db.NVarChar(50)
+  name              String               @db.NVarChar(255)
+  discount_type     String @db.NVarChar(40)
   discount_value    Decimal              @default(0) @db.Decimal(15, 2)
   min_order_value   Decimal              @default(0) @db.Decimal(15, 2)
   max_discount      Decimal?             @db.Decimal(15, 2)
   usage_limit       Int?
   used_count        Int                  @default(0)
-  start_at          DateTime             @db.Timestamptz(6)
-  end_at            DateTime             @db.Timestamptz(6)
-  status            coupon_status        @default(ACTIVE)
-  created_at        DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime             @default(now()) @db.Timestamptz(6)
+  start_at          DateTime             @db.DateTime2
+  end_at            DateTime             @db.DateTime2
+  status            String @db.NVarChar(40)        @default("ACTIVE")
+  created_at        DateTime             @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  updated_at        DateTime             @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
   coupon_categories coupon_categories[]
+  loyalty_owner_id  String? @db.UniqueIdentifier
 
   @@index([status, start_at, end_at], map: "idx_coupons_status_time")
 }
 
 model ml_models {
   id               BigInt             @id @default(autoincrement())
-  model_name       String             @unique(map: "uq_ml_models_active_per_name", where: raw("(is_active = true)")) @db.VarChar(100)
-  algorithm        String             @db.VarChar(100)
-  version          String             @db.VarChar(50)
+  model_name       String             @db.NVarChar(100)
+  algorithm        String             @db.NVarChar(100)
+  version          String             @db.NVarChar(50)
   accuracy         Decimal?           @db.Decimal(8, 5)
   precision_score  Decimal?           @db.Decimal(8, 5)
   recall_score     Decimal?           @db.Decimal(8, 5)
   f1_score         Decimal?           @db.Decimal(8, 5)
   roc_auc          Decimal?           @db.Decimal(8, 5)
-  model_path       String?
+  model_path       String? @db.NVarChar(Max)
   is_active        Boolean            @default(false)
-  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  created_at       DateTime           @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
   ml_training_runs ml_training_runs[]
   risk_predictions risk_predictions[]
 
@@ -170,33 +184,33 @@ model ml_models {
 model ml_training_runs {
   id                BigInt              @id @default(autoincrement())
   model_id          BigInt
-  dataset_version   String?             @db.VarChar(100)
+  dataset_version   String?             @db.NVarChar(100)
   feature_date_from DateTime?           @db.Date
   feature_date_to   DateTime?           @db.Date
   training_samples  Int?
   testing_samples   Int?
-  started_at        DateTime?           @db.Timestamptz(6)
-  completed_at      DateTime?           @db.Timestamptz(6)
-  status            training_run_status @default(RUNNING)
-  ml_models         ml_models           @relation(fields: [model_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  started_at        DateTime?           @db.DateTime2
+  completed_at      DateTime?           @db.DateTime2
+  status            String @db.NVarChar(40) @default("RUNNING")
+  ml_models         ml_models           @relation(fields: [model_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([model_id], map: "idx_ml_training_runs_model_id")
 }
 
 model notifications {
   id             BigInt            @id @default(autoincrement())
-  user_id        String            @db.Uuid
-  title          String            @db.VarChar(255)
-  message        String
-  type           notification_type
-  reference_type String?           @db.VarChar(50)
+  user_id        String            @db.UniqueIdentifier
+  title          String            @db.NVarChar(255)
+  message        String @db.NVarChar(Max)
+  type           String @db.NVarChar(40)
+  reference_type String?           @db.NVarChar(50)
   reference_id   BigInt?
   is_read        Boolean           @default(false)
-  created_at     DateTime          @default(now()) @db.Timestamptz(6)
-  users          users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  created_at     DateTime          @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  users          users             @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([reference_type, reference_id], map: "idx_notifications_reference")
-  @@index([user_id, created_at(sort: Desc)], map: "idx_notifications_user_unread", where: raw("(is_read = false)"))
+  @@index([user_id, created_at(sort: Desc)], map: "idx_notifications_user_unread")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -205,13 +219,13 @@ model order_items {
   order_id         BigInt
   product_id       BigInt
   variant_id       BigInt?
-  product_name     String            @db.VarChar(255)
+  product_name     String            @db.NVarChar(255)
   quantity         Int
   unit_price       Decimal           @db.Decimal(15, 2)
   subtotal         Decimal           @db.Decimal(15, 2)
-  orders           orders            @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  products         products          @relation(fields: [product_id], references: [id], onUpdate: NoAction)
-  product_variants product_variants? @relation(fields: [variant_id], references: [id], onUpdate: NoAction)
+  orders           orders            @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products         products          @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_variants product_variants? @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([order_id], map: "idx_order_items_order_id")
   @@index([product_id], map: "idx_order_items_product_id")
@@ -220,12 +234,12 @@ model order_items {
 model order_status_history {
   id         BigInt        @id @default(autoincrement())
   order_id   BigInt
-  old_status order_status?
-  new_status order_status
-  changed_by String?       @db.Uuid
-  created_at DateTime      @default(now()) @db.Timestamptz(6)
-  users      users?        @relation(fields: [changed_by], references: [id], onUpdate: NoAction)
-  orders     orders        @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  old_status String? @db.NVarChar(40)
+  new_status String @db.NVarChar(40)
+  changed_by String?       @db.UniqueIdentifier
+  created_at DateTime      @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  users      users?        @relation(fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders     orders        @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([order_id], map: "idx_order_status_history_order_id")
 }
@@ -233,30 +247,33 @@ model order_status_history {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model orders {
   id                      BigInt                 @id @default(autoincrement())
-  order_code              String                 @unique @db.VarChar(50)
-  buyer_id                String                 @db.Uuid
+  order_code              String                 @unique @db.NVarChar(50)
+  buyer_id                String                 @db.UniqueIdentifier
   shop_id                 BigInt
   shipping_address_id     BigInt?
-  shipping_receiver_name  String                 @db.VarChar(255)
-  shipping_phone          String                 @db.VarChar(20)
-  shipping_province       String                 @db.VarChar(100)
-  shipping_district       String                 @db.VarChar(100)
-  shipping_ward           String                 @db.VarChar(100)
-  shipping_address_detail String
+  shipping_receiver_name  String                 @db.NVarChar(255)
+  shipping_phone          String                 @db.NVarChar(20)
+  shipping_province       String                 @db.NVarChar(100)
+  shipping_district       String                 @db.NVarChar(100)
+  shipping_ward           String                 @db.NVarChar(100)
+  shipping_address_detail String @db.NVarChar(Max)
+  note                    String? @db.NVarChar(Max)
+  inventory_reserved      Boolean                @default(false)
   subtotal                Decimal                @db.Decimal(15, 2)
   shipping_fee            Decimal                @default(0) @db.Decimal(15, 2)
   discount_amount         Decimal                @default(0) @db.Decimal(15, 2)
   total_amount            Decimal                @db.Decimal(15, 2)
-  status                  order_status           @default(PENDING)
-  payment_status          payment_status         @default(UNPAID)
-  created_at              DateTime               @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime               @default(now()) @db.Timestamptz(6)
+  status                  String @db.NVarChar(40)           @default("PENDING")
+  payment_status          String @db.NVarChar(40)         @default("UNPAID")
+  created_at              DateTime               @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  updated_at              DateTime               @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
   order_items             order_items[]
   order_status_history    order_status_history[]
-  users                   users                  @relation(fields: [buyer_id], references: [id], onUpdate: NoAction)
-  addresses               addresses?             @relation(fields: [shipping_address_id], references: [id], onUpdate: NoAction)
-  shops                   shops                  @relation(fields: [shop_id], references: [id], onUpdate: NoAction)
+  users                   users                  @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  addresses               addresses?             @relation(fields: [shipping_address_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shops                   shops                  @relation(fields: [shop_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   payments                payments[]
+  payment_attempts        payment_attempts[]
   returns                 returns[]
   reviews                 reviews[]
   risk_predictions        risk_predictions[]
@@ -272,22 +289,22 @@ model orders {
 model payments {
   id               BigInt         @id @default(autoincrement())
   order_id         BigInt
-  method           payment_method
+  method           String @db.NVarChar(40)
   amount           Decimal        @db.Decimal(15, 2)
-  status           payment_status @default(UNPAID)
-  transaction_code String?        @db.VarChar(100)
-  paid_at          DateTime?      @db.Timestamptz(6)
-  orders           orders         @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  status           String @db.NVarChar(40) @default("UNPAID")
+  transaction_code String?        @db.NVarChar(100)
+  paid_at          DateTime?      @db.DateTime2
+  orders           orders         @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([order_id], map: "idx_payments_order_id")
 }
 
 model product_images {
   id         BigInt   @id @default(autoincrement())
-  product_id BigInt   @unique(map: "uq_product_images_one_primary", where: raw("(is_primary = true)"))
-  image_url  String
+  product_id BigInt
+  image_url  String @db.NVarChar(Max)
   is_primary Boolean  @default(false)
-  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products   products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([product_id], map: "idx_product_images_product_id")
 }
@@ -296,12 +313,12 @@ model product_images {
 model product_variants {
   id             BigInt        @id @default(autoincrement())
   product_id     BigInt
-  variant_name   String        @db.VarChar(255)
+  variant_name   String        @db.NVarChar(255)
   price          Decimal       @db.Decimal(15, 2)
   stock_quantity Int           @default(0)
   cart_items     cart_items[]
   order_items    order_items[]
-  products       products      @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products       products      @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([product_id], map: "idx_product_variants_product_id")
 }
@@ -311,19 +328,19 @@ model products {
   id               BigInt             @id @default(autoincrement())
   shop_id          BigInt
   category_id      BigInt?
-  name             String             @db.VarChar(255)
-  description      String?
+  name             String             @db.NVarChar(255)
+  description      String? @db.NVarChar(Max)
   price            Decimal            @db.Decimal(15, 2)
   stock_quantity   Int                @default(0)
-  status           product_status     @default(ACTIVE)
-  created_at       DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  status           String @db.NVarChar(40)     @default("ACTIVE")
+  created_at       DateTime           @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  updated_at       DateTime           @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
   cart_items       cart_items[]
   order_items      order_items[]
-  product_images   product_images?
+  product_images   product_images[]
   product_variants product_variants[]
-  categories       categories?        @relation(fields: [category_id], references: [id], onUpdate: NoAction)
-  shops            shops              @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  categories       categories?        @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shops            shops              @relation(fields: [shop_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reviews          reviews[]
   wishlist_items   wishlist_items[]
 
@@ -334,12 +351,12 @@ model products {
 model recommendation_actions {
   id                BigInt          @id @default(autoincrement())
   recommendation_id BigInt
-  seller_id         String          @db.Uuid
-  decision          seller_decision
-  note              String?
-  created_at        DateTime        @default(now()) @db.Timestamptz(6)
-  recommendations   recommendations @relation(fields: [recommendation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users             users           @relation(fields: [seller_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  seller_id         String          @db.UniqueIdentifier
+  decision          String @db.NVarChar(40)
+  note              String? @db.NVarChar(Max)
+  created_at        DateTime        @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  recommendations   recommendations @relation(fields: [recommendation_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users             users           @relation(fields: [seller_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([recommendation_id], map: "idx_recommendation_actions_rec_id")
 }
@@ -347,12 +364,12 @@ model recommendation_actions {
 model recommendations {
   id                     BigInt                     @id @default(autoincrement())
   prediction_id          BigInt
-  action_type            recommendation_action_type
-  title                  String                     @db.VarChar(255)
-  description            String?
-  created_at             DateTime                   @default(now()) @db.Timestamptz(6)
+  action_type            String @db.NVarChar(40)
+  title                  String                     @db.NVarChar(255)
+  description            String? @db.NVarChar(Max)
+  created_at             DateTime                   @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
   recommendation_actions recommendation_actions[]
-  risk_predictions       risk_predictions           @relation(fields: [prediction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  risk_predictions       risk_predictions           @relation(fields: [prediction_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([prediction_id], map: "idx_recommendations_prediction_id")
 }
@@ -360,11 +377,11 @@ model recommendations {
 model returns {
   id           BigInt        @id @default(autoincrement())
   order_id     BigInt
-  reason       String
-  status       return_status @default(REQUESTED)
-  requested_at DateTime      @default(now()) @db.Timestamptz(6)
-  processed_at DateTime?     @db.Timestamptz(6)
-  orders       orders        @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  reason       String @db.NVarChar(Max)
+  status       String @db.NVarChar(40) @default("REQUESTED")
+  requested_at DateTime      @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  processed_at DateTime?     @db.DateTime2
+  orders       orders        @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([order_id], map: "idx_returns_order_id")
 }
@@ -374,13 +391,13 @@ model reviews {
   id         BigInt   @id @default(autoincrement())
   order_id   BigInt
   product_id BigInt
-  buyer_id   String   @db.Uuid
+  buyer_id   String   @db.UniqueIdentifier
   rating     Int
-  comment    String?
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  users      users    @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  orders     orders   @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  products   products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  comment    String? @db.NVarChar(Max)
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  users      users    @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders     orders   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products   products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([order_id, product_id, buyer_id])
   @@index([buyer_id], map: "idx_reviews_buyer_id")
@@ -390,12 +407,12 @@ model reviews {
 model risk_explanations {
   id               BigInt            @id @default(autoincrement())
   prediction_id    BigInt
-  feature_name     String            @db.VarChar(100)
+  feature_name     String            @db.NVarChar(100)
   feature_value    Decimal?          @db.Decimal(15, 5)
   impact_value     Decimal?          @db.Decimal(15, 5)
-  impact_direction impact_direction?
-  description      String?
-  risk_predictions risk_predictions  @relation(fields: [prediction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  impact_direction String? @db.NVarChar(40)
+  description      String? @db.NVarChar(Max)
+  risk_predictions risk_predictions  @relation(fields: [prediction_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([prediction_id], map: "idx_risk_explanations_prediction_id")
 }
@@ -403,18 +420,18 @@ model risk_explanations {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model risk_predictions {
   id                BigInt              @id @default(autoincrement())
-  buyer_id          String              @db.Uuid
+  buyer_id          String              @db.UniqueIdentifier
   order_id          BigInt?
   model_id          BigInt
   risk_probability  Decimal             @db.Decimal(8, 5)
   risk_score        Decimal             @db.Decimal(5, 2)
-  risk_level        risk_level
-  predicted_at      DateTime            @default(now()) @db.Timestamptz(6)
+  risk_level        String @db.NVarChar(40)
+  predicted_at      DateTime            @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
   recommendations   recommendations[]
   risk_explanations risk_explanations[]
-  users             users               @relation(fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  ml_models         ml_models           @relation(fields: [model_id], references: [id], onUpdate: NoAction)
-  orders            orders?             @relation(fields: [order_id], references: [id], onUpdate: NoAction)
+  users             users               @relation(fields: [buyer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  ml_models         ml_models           @relation(fields: [model_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders            orders?             @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([buyer_id, predicted_at(sort: Desc)], map: "idx_risk_predictions_buyer_time")
   @@index([order_id], map: "idx_risk_predictions_order_id")
@@ -422,30 +439,30 @@ model risk_predictions {
 
 model roles {
   id         BigInt       @id @default(autoincrement())
-  name       String       @unique @db.VarChar(50)
+  name       String       @unique @db.NVarChar(50)
   user_roles user_roles[]
 }
 
 model shipments {
   id            BigInt          @id @default(autoincrement())
   order_id      BigInt
-  carrier       String          @db.VarChar(100)
-  tracking_code String?         @db.VarChar(100)
-  status        shipment_status @default(PENDING)
-  shipped_at    DateTime?       @db.Timestamptz(6)
-  delivered_at  DateTime?       @db.Timestamptz(6)
-  orders        orders          @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  carrier       String          @db.NVarChar(100)
+  tracking_code String?         @db.NVarChar(100)
+  status        String @db.NVarChar(40) @default("PENDING")
+  shipped_at    DateTime?       @db.DateTime2
+  delivered_at  DateTime?       @db.DateTime2
+  orders        orders          @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([order_id], map: "idx_shipments_order_id")
 }
 
 model shop_members {
   shop_id    BigInt
-  user_id    String   @db.Uuid
-  role       String   @db.VarChar(50)
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  shops      shops    @relation(fields: [shop_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user_id    String   @db.UniqueIdentifier
+  role       String   @db.NVarChar(50)
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  shops      shops    @relation(fields: [shop_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([shop_id, user_id])
   @@index([user_id], map: "idx_shop_members_user_id")
@@ -453,41 +470,44 @@ model shop_members {
 
 model shops {
   id           BigInt         @id @default(autoincrement())
-  owner_id     String         @db.Uuid
-  name         String         @db.VarChar(255)
-  description  String?
-  logo_url     String?
-  status       shop_status    @default(ACTIVE)
-  created_at   DateTime       @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime       @default(now()) @db.Timestamptz(6)
+  owner_id     String         @db.UniqueIdentifier
+  name         String         @db.NVarChar(255)
+  description  String? @db.NVarChar(Max)
+  logo_url     String? @db.NVarChar(Max)
+  status       String @db.NVarChar(40)    @default("ACTIVE")
+  created_at   DateTime       @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  updated_at   DateTime       @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
   orders       orders[]
   products     products[]
   shop_members shop_members[]
-  users        users          @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users          @relation(fields: [owner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([owner_id], map: "idx_shops_owner_id")
 }
 
 model user_roles {
-  user_id String @db.Uuid
+  user_id String @db.UniqueIdentifier
   role_id BigInt
-  roles   roles  @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users   users  @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  roles   roles  @relation(fields: [role_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users   users  @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([user_id, role_id])
 }
 
 model users {
-  id                     String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  email                  String                   @unique @db.VarChar(255)
-  password_hash          String                   @db.VarChar(255)
-  full_name              String?                  @db.VarChar(255)
-  phone                  String?                  @db.VarChar(20)
-  avatar_url             String?
-  status                 user_status              @default(ACTIVE)
-  created_at             DateTime                 @default(now()) @db.Timestamptz(6)
-  updated_at             DateTime                 @default(now()) @db.Timestamptz(6)
-  addresses              addresses?
+  auth_version Int @default(0)
+  password_reset_tokens password_reset_tokens[]
+  id                     String                   @id @default(dbgenerated("newid()")) @db.UniqueIdentifier
+  email                  String                   @unique @db.NVarChar(255)
+  password_hash          String                   @db.NVarChar(255)
+  token_version          Int                      @default(0)
+  full_name              String?                  @db.NVarChar(255)
+  phone                  String?                  @db.NVarChar(20)
+  avatar_url             String? @db.NVarChar(Max)
+  status                 String @db.NVarChar(40)              @default("ACTIVE")
+  created_at             DateTime                 @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  updated_at             DateTime                 @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  addresses              addresses[]
   audit_logs             audit_logs[]
   buyer_features         buyer_features[]
   buyer_profiles         buyer_profiles?
@@ -502,146 +522,196 @@ model users {
   shops                  shops[]
   user_roles             user_roles[]
   wishlists              wishlists[]
+  loyalty_member         loyalty_members?
+}
+
+model password_reset_tokens {
+  id String @id @db.UniqueIdentifier
+  user_id String @db.UniqueIdentifier
+  token_hash String @unique @db.VarChar(64)
+  expires_at DateTime @db.DateTime2
+  used_at DateTime? @db.DateTime2
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  mail_payload String? @db.NVarChar(Max)
+  mail_state String @default("PENDING") @db.VarChar(20)
+  mail_attempts Int @default(0)
+  mail_next_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  mail_lease_at DateTime? @db.DateTime2
+  users users @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([user_id, created_at])
+  @@index([mail_state, mail_next_at])
+}
+
+model loyalty_members {
+  user_id String @id @db.UniqueIdentifier
+  balance Int @default(0)
+  qualifying_spend Decimal @default(0) @db.Decimal(15, 2)
+  tier_code String @default("BRONZE") @db.NVarChar(30)
+  cycle_started_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  joined_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  users users @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transactions loyalty_point_transactions[]
+  redemptions loyalty_redemptions[]
+  complaints loyalty_complaints[]
+  adjustments loyalty_adjustments[]
+}
+
+model loyalty_rule_versions {
+  id BigInt @id @default(autoincrement())
+  name String @db.NVarChar(150)
+  status String @default("DRAFT") @db.NVarChar(20)
+  config String @db.NVarChar(Max)
+  effective_at DateTime? @unique @db.DateTime2
+  created_by String? @db.UniqueIdentifier
+  published_by String? @db.UniqueIdentifier
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  published_at DateTime? @db.DateTime2
+  transactions loyalty_point_transactions[]
+  @@index([status, effective_at])
+}
+
+model loyalty_point_transactions {
+  id BigInt @id @default(autoincrement())
+  member_id String @db.UniqueIdentifier
+  kind String @db.NVarChar(20)
+  points Int
+  qualifying_amount Decimal @default(0) @db.Decimal(15, 2)
+  source_key String @unique @db.NVarChar(150)
+  order_id BigInt?
+  rule_version_id BigInt?
+  description String @db.NVarChar(500)
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  member loyalty_members @relation(fields: [member_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  rule loyalty_rule_versions? @relation(fields: [rule_version_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lot loyalty_point_lots?
+  @@index([member_id, created_at(sort: Desc), id(sort: Desc)])
+  @@index([order_id])
+}
+
+model loyalty_point_lots {
+  id BigInt @id @default(autoincrement())
+  transaction_id BigInt @unique
+  member_id String @db.UniqueIdentifier
+  remaining Int
+  expires_at DateTime @db.DateTime2
+  transaction loyalty_point_transactions @relation(fields: [transaction_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([member_id, expires_at])
+}
+
+model loyalty_rewards {
+  id BigInt @id @default(autoincrement())
+  name String @db.NVarChar(150)
+  description String? @db.NVarChar(Max)
+  points_cost Int
+  discount_value Decimal @db.Decimal(15, 2)
+  min_order_value Decimal @default(0) @db.Decimal(15, 2)
+  minimum_tier_spend Decimal @default(0) @db.Decimal(15, 2)
+  stock Int
+  voucher_days Int
+  active Boolean @default(true)
+  created_by String @db.UniqueIdentifier
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  redemptions loyalty_redemptions[]
+}
+
+model loyalty_redemptions {
+  id BigInt @id @default(autoincrement())
+  member_id String @db.UniqueIdentifier
+  reward_id BigInt
+  coupon_id BigInt @unique
+  coupon_code String @unique @db.NVarChar(50)
+  points_spent Int
+  request_key String @db.UniqueIdentifier
+  expires_at DateTime @db.DateTime2
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  member loyalty_members @relation(fields: [member_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  reward loyalty_rewards @relation(fields: [reward_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@unique([member_id, request_key])
+  @@index([member_id, created_at(sort: Desc)])
+}
+
+model loyalty_complaints {
+  id BigInt @id @default(autoincrement())
+  member_id String @db.UniqueIdentifier
+  order_id BigInt?
+  type String @db.NVarChar(30)
+  message String @db.NVarChar(Max)
+  status String @default("OPEN") @db.NVarChar(20)
+  response String? @db.NVarChar(Max)
+  handled_by String? @db.UniqueIdentifier
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  updated_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  member loyalty_members @relation(fields: [member_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  adjustments loyalty_adjustments[]
+  @@index([member_id, created_at(sort: Desc)])
+}
+
+model loyalty_adjustments {
+  id BigInt @id @default(autoincrement())
+  request_key String? @db.UniqueIdentifier
+  member_id String @db.UniqueIdentifier
+  complaint_id BigInt?
+  points Int
+  reason String @db.NVarChar(Max)
+  status String @default("PENDING") @db.NVarChar(20)
+  requested_by String @db.UniqueIdentifier
+  decided_by String? @db.UniqueIdentifier
+  decision_note String? @db.NVarChar(Max)
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  decided_at DateTime? @db.DateTime2
+  member loyalty_members @relation(fields: [member_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+  complaint loyalty_complaints? @relation(fields: [complaint_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([status, created_at])
 }
 
 model wishlist_items {
   wishlist_id BigInt
   product_id  BigInt
-  products    products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  wishlists   wishlists @relation(fields: [wishlist_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products    products  @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  wishlists   wishlists @relation(fields: [wishlist_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([wishlist_id, product_id])
 }
 
 model wishlists {
   id             BigInt           @id @default(autoincrement())
-  user_id        String           @db.Uuid
-  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  user_id        String           @unique(map: "uq_wishlists_user") @db.UniqueIdentifier
+  created_at     DateTime         @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
   wishlist_items wishlist_items[]
-  users          users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          users            @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([user_id], map: "idx_wishlists_user_id")
 }
 
-enum category_status {
-  ACTIVE
-  INACTIVE
+// Primary/default partial unique indexes are managed by SQL migrations, not FK @unique.
+model payment_attempts {
+  id String @id @db.NVarChar(32)
+  provider String @default("VNPAY") @db.NVarChar(20)
+  payment_url String? @db.NVarChar(Max)
+  order_id BigInt
+  amount Decimal @db.Decimal(15, 2)
+  status String @default("PENDING") @db.NVarChar(20)
+  provider_transaction String? @unique @db.NVarChar(100)
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  expires_at DateTime @db.DateTime2
+  paid_at DateTime? @db.DateTime2
+  orders orders @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@index([order_id, status])
 }
 
-enum coupon_discount_type {
-  PERCENT
-  FIXED
-  FREE_SHIP
+model checkout_requests {
+  buyer_id String @db.UniqueIdentifier
+  idempotency_key String @db.NVarChar(64)
+  request_hash String @db.NVarChar(64)
+  response String @db.NVarChar(Max)
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
+  @@id([buyer_id, idempotency_key])
 }
-
-enum coupon_status {
-  ACTIVE
-  INACTIVE
-  EXPIRED
-}
-
-enum impact_direction {
-  POSITIVE
-  NEGATIVE
-  NEUTRAL
-}
-
-enum notification_type {
-  ORDER_UPDATE
-  RISK_ALERT
-  PROMOTION
-  SYSTEM
-}
-
-enum order_status {
-  PENDING
-  CONFIRMED
-  PROCESSING
-  SHIPPING
-  DELIVERED
-  COMPLETED
-  CANCELLED
-  RETURNED
-  FAILED
-  NON_RECEIVED
-}
-
-enum payment_method {
-  COD
-  BANK_TRANSFER
-  CREDIT_CARD
-  E_WALLET
-}
-
-enum payment_status {
-  UNPAID
-  PAID
-  PARTIALLY_REFUNDED
-  REFUNDED
-  FAILED
-}
-
-enum product_status {
-  ACTIVE
-  OUT_OF_STOCK
-  HIDDEN
-  DELETED
-}
-
-enum recommendation_action_type {
-  REQUIRE_PREPAYMENT
-  FLAG_FOR_REVIEW
-  LIMIT_COD
-  BLOCK_BUYER
-  SEND_WARNING
-  NO_ACTION
-}
-
-enum return_status {
-  REQUESTED
-  APPROVED
-  REJECTED
-  COMPLETED
-}
-
-enum risk_level {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum seller_decision {
-  IGNORED
-  CANCELLED
-  REQUIRE_PREPAYMENT
-  BLOCKED_BUYER
-  CONTACTED_BUYER
-}
-
-enum shipment_status {
-  PENDING
-  PICKED_UP
-  IN_TRANSIT
-  DELIVERED
-  FAILED_DELIVERY
-  RETURNED_TO_SHOP
-}
-
-enum shop_status {
-  ACTIVE
-  SUSPENDED
-  CLOSED
-}
-
-enum training_run_status {
-  RUNNING
-  SUCCESS
-  FAILED
-}
-
-enum user_status {
-  ACTIVE
-  SUSPENDED
-  DELETED
+model coupon_redemptions {
+  order_id BigInt @id
+  coupon_id BigInt
+  buyer_id String @db.UniqueIdentifier
+  coupon_code String @db.NVarChar(50)
+  discount_amount Decimal @db.Decimal(15, 2)
+  created_at DateTime @default(dbgenerated("sysutcdatetime()")) @db.DateTime2
 }

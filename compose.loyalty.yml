@@ -1,0 +1,81 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: ${ACCEPT_EULA:?Review the SQL Server container license and set ACCEPT_EULA}
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${SQLSERVER_PASSWORD:?Set a strong SQLSERVER_PASSWORD in .env.docker}
+    volumes:
+      - loyalty_sqlserver:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b > /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - loyalty_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: ecommerce-loyalty-backend:local
+    command: ["node", "scripts/deploy-sqlserver.cjs"]
+    environment:
+      SQLSERVER_AUTH: sql
+      SQLSERVER_SERVER: db
+      SQLSERVER_DATABASE: ecommerce_risk_sqlserver
+      SQLSERVER_USER: sa
+      SQLSERVER_PASSWORD: ${SQLSERVER_PASSWORD:?Set SQLSERVER_PASSWORD}
+      SQLSERVER_TRUST_CERTIFICATE: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+  backend:
+    image: ecommerce-loyalty-backend:local
+    environment:
+      SQLSERVER_AUTH: sql
+      SQLSERVER_SERVER: db
+      SQLSERVER_DATABASE: ecommerce_risk_sqlserver
+      SQLSERVER_USER: sa
+      SQLSERVER_PASSWORD: ${SQLSERVER_PASSWORD:?Set SQLSERVER_PASSWORD}
+      SQLSERVER_TRUST_CERTIFICATE: "true"
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.docker}
+      REDIS_URL: redis://redis:6379
+      LOYALTY_WORKER_ENABLED: "true"
+      CORS_ORIGINS: http://localhost:${WEB_PORT:-5173},http://127.0.0.1:${WEB_PORT:-5173}
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:3000/payments/vnpay/return}
+      VNPAY_URL: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+      MOMO_PARTNER_CODE: ${MOMO_PARTNER_CODE:-}
+      MOMO_ACCESS_KEY: ${MOMO_ACCESS_KEY:-}
+      MOMO_SECRET_KEY: ${MOMO_SECRET_KEY:-}
+      MOMO_REDIRECT_URL: ${MOMO_REDIRECT_URL:-http://localhost:3000/payments/momo/return}
+      MOMO_IPN_URL: ${MOMO_IPN_URL:-}
+      WEB_PUBLIC_URL: http://localhost:${WEB_PORT:-5173}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+  web:
+    build:
+      context: .
+      dockerfile: frontend/web/Dockerfile
+    ports:
+      - "127.0.0.1:${WEB_PORT:-5173}:80"
+    depends_on:
+      - backend
+volumes:
+  loyalty_sqlserver:
+  loyalty_redis:

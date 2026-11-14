@@ -9,7 +9,8 @@ import { map } from 'rxjs/operators';
 
 function toPlainValue(value: unknown): unknown {
   if (typeof value === 'bigint') {
-    return Number(value);
+    const number = Number(value);
+    return Number.isSafeInteger(number) ? number : value.toString();
   }
 
   if (value instanceof Date) {
@@ -31,9 +32,19 @@ function toPlainValue(value: unknown): unknown {
 
   if (value && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(
-        ([key, entry]) => [key, toPlainValue(entry)],
-      ),
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => {
+        if (
+          ['config', 'old_data', 'new_data'].includes(key) &&
+          typeof entry === 'string'
+        ) {
+          try {
+            return [key, toPlainValue(JSON.parse(entry))];
+          } catch {
+            /* Preserve non-JSON legacy text. */
+          }
+        }
+        return [key, toPlainValue(entry)];
+      }),
     );
   }
 
@@ -50,8 +61,6 @@ export class SerializeInterceptor implements NestInterceptor {
     _context: ExecutionContext,
     next: CallHandler,
   ): Observable<unknown> {
-    return next.handle().pipe(
-      map((data) => serialize(data)),
-    );
+    return next.handle().pipe(map((data: unknown) => serialize(data)));
   }
 }

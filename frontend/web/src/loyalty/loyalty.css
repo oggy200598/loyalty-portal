@@ -1,0 +1,39 @@
+.loyalty-page {
+  --bs-primary: #c2410c;
+  --bs-primary-rgb: 194, 65, 12;
+  --bs-link-color: #c2410c;
+  --bs-link-color-rgb: 194, 65, 12;
+  --bs-link-hover-color: #9a3412;
+  --bs-link-hover-color-rgb: 154, 52, 18;
+  color: #27272a;
+}
+.loyalty-page h1 { font-size: 24px; letter-spacing: -.4px; }
+.loyalty-page .loyalty-panel { border-color: #e4e4e7 !important; box-shadow: none; }
+.loyalty-page .nav-pills { gap: 6px !important; border-bottom: 1px solid #e4e4e7; padding-bottom: 0; }
+.loyalty-page .nav-pills .nav-link { color: #71717a; background: transparent; border-radius: 0; border-bottom: 2px solid transparent; padding: 12px 16px; font-size: 14px; }
+.loyalty-page .nav-pills .nav-link:hover { color: #9a3412; background: #fff7ed; }
+.loyalty-page .nav-pills .nav-link.active { color: #9a3412; background: transparent; border-bottom-color: #c2410c; font-weight: 600; }
+.loyalty-page .btn { border-radius: 6px; }
+.loyalty-page .btn-primary {
+  --bs-btn-bg: #c2410c; --bs-btn-border-color: #c2410c;
+  --bs-btn-hover-bg: #9a3412; --bs-btn-hover-border-color: #9a3412;
+  --bs-btn-active-bg: #9a3412; --bs-btn-active-border-color: #9a3412;
+  --bs-btn-disabled-bg: #c2410c; --bs-btn-disabled-border-color: #c2410c;
+  --bs-btn-focus-shadow-rgb: 194, 65, 12;
+}
+.loyalty-page .progress { height: 8px; background: #ffedd5; }
+.loyalty-page .btn-outline-primary {
+  --bs-btn-color: #c2410c; --bs-btn-border-color: #e5c5b7;
+  --bs-btn-hover-bg: #fff7ed; --bs-btn-hover-color: #9a3412; --bs-btn-hover-border-color: #c2410c;
+  --bs-btn-active-bg: #c2410c; --bs-btn-active-border-color: #c2410c;
+}
+.loyalty-page .progress-bar { background: #ea580c; }
+.loyalty-page .form-control:focus, .loyalty-page .form-select:focus { border-color: #c2410c; box-shadow: 0 0 0 3px #c2410c18; }
+.loyalty-page .table { font-size: 14px; }
+.loyalty-page .table th { background: #fafafa; color: #71717a; font-weight: 500; }
+.loyalty-page .table > :not(caption) > * > * { padding: 12px; border-color: #ededf0; }
+.loyalty-page a:focus-visible, .loyalty-page button:focus-visible { outline: 2px solid #c2410c; outline-offset: 3px; }
+@media (max-width: 575px) {
+  .loyalty-page h1 { font-size: 21px; }
+  .loyalty-page .nav-pills .nav-link { padding: 10px; font-size: 13px; }
+}

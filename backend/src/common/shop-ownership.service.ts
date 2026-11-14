@@ -1,5 +1,5 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from '../database/prisma/prisma.service';
+import { PrismaService } from '../database/prisma.service';
 
 /**
  * Shop ownership resolution.
@@ -25,10 +25,7 @@ export class ShopOwnershipService {
       }),
     ]);
 
-    const ids = [
-      ...owned.map((s) => s.id),
-      ...memberOf.map((m) => m.shop_id),
-    ];
+    const ids = [...owned.map((s) => s.id), ...memberOf.map((m) => m.shop_id)];
     return [...new Set(ids)];
   }
 

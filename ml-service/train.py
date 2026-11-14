@@ -1,87 +1,60 @@
-"""Train model dự đoán rủi ro buyer từ buyer_features.
-
-Chạy: python train.py
-"""
+"""Train on mature future outcomes; use --dry-run to avoid publishing."""
+import argparse
 import json
+import os
 import sys
-
+from datetime import datetime, timezone
+from uuid import uuid4
 import joblib
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import train_test_split
-
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 import db
-from config import FEATURE_COLUMNS
+from config import FEATURE_COLUMNS, FEATURE_CONTRACT, MODEL_DIR
+from evaluation import split_records
 
 
-def main() -> None:
-    print("Đang tải dữ liệu training...")
-    X, y = db.load_training_data()
-
-    if len(X) < 20:
-        print(
-            f"[CẢNH BÁO] Chỉ có {len(X)} mẫu — cần >= 20 để train ổn định. "
-            "Tiếp tục nhưng metrics có thể không đáng tin."
-        )
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y if len(set(y)) > 1 else None
-    )
-
-    print(f"Training với {len(X_train)} mẫu (test: {len(X_test)})...")
-    model = GradientBoostingClassifier(
-        n_estimators=150, max_depth=4, learning_rate=0.1, random_state=42
-    )
+def main(dry_run=False):
+    records = db.load_training_records()
+    train, test = split_records(records)
+    X_train, y_train = [r['features'] for r in train], [r['target'] for r in train]
+    X_test, y_test = [r['features'] for r in test], [r['target'] for r in test]
+    model = GradientBoostingClassifier(n_estimators=150, max_depth=4, learning_rate=0.1, random_state=42)
     model.fit(X_train, y_train)
-
-    # Metrics
-    y_pred = model.predict(X_test)
-    y_prob = model.predict_proba(X_test)[:, 1] if len(set(y)) > 1 else y_pred
-
-    metrics = {
-        "accuracy": round(float(accuracy_score(y_test, y_pred)), 5),
-        "precision": round(float(precision_score(y_test, y_pred, zero_division=0)), 5),
-        "recall": round(float(recall_score(y_test, y_pred, zero_division=0)), 5),
-        "f1": round(float(f1_score(y_test, y_pred, zero_division=0)), 5),
-        "roc_auc": (
-            round(float(roc_auc_score(y_test, y_prob)), 5)
-            if len(set(y_test)) > 1
-            else None
-        ),
-    }
-    print("Metrics:", json.dumps(metrics, indent=2))
-
-    # Lưu model + feature importance
-    joblib.dump(model, "model.joblib")
-    importances = {
-        col: round(float(imp), 5)
-        for col, imp in zip(FEATURE_COLUMNS, model.feature_importances_)
-    }
-    with open("feature_importance.json", "w", encoding="utf-8") as f:
-        json.dump(importances, f, indent=2, ensure_ascii=False)
-    print("Feature importance:", json.dumps(importances, indent=2))
-
-    # Ghi vào DB
-    version = "1.0.0"
-    model_id = db.record_training_run(
-        model_name="risk_classifier",
-        algorithm="GradientBoostingClassifier",
-        version=version,
-        metrics=metrics,
-        samples=len(X_train),
-    )
-    print(f"Đã ghi ml_model #{model_id} (active) + training run.")
-
-
-if __name__ == "__main__":
+    predicted = model.predict(X_test)
+    probabilities = model.predict_proba(X_test)[:, 1]
+    metrics = {'accuracy': float(accuracy_score(y_test, predicted)), 'precision': float(precision_score(y_test, predicted, zero_division=0)), 'recall': float(recall_score(y_test, predicted, zero_division=0)), 'f1': float(f1_score(y_test, predicted, zero_division=0)), 'roc_auc': float(roc_auc_score(y_test, probabilities))}
+    publishable = metrics['recall'] >= 0.2 and metrics['roc_auc'] >= 0.6
+    print(json.dumps({'train_samples': len(train), 'test_samples': len(test), 'contract': FEATURE_CONTRACT, 'metrics': metrics, 'published': False, 'publishable': publishable}, indent=2))
+    if dry_run:
+        return metrics
+    if not publishable:
+        raise ValueError('Candidate failed publication gate: recall >= 0.20 and ROC AUC >= 0.60 required')
+    version = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S') + '-' + uuid4().hex[:12]
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    target = MODEL_DIR / f'{version}.joblib'
+    temporary = MODEL_DIR / f'{version}.tmp'
+    def publish(model_id):
+        bundle = {'model': model, 'model_id': model_id, 'version': version, 'feature_columns': FEATURE_COLUMNS, 'feature_contract': FEATURE_CONTRACT}
+        joblib.dump(bundle, temporary)
+        loaded = joblib.load(temporary)
+        loaded['model'].predict_proba(X_test[:1])
+        os.replace(temporary, target)
+        return str(target.resolve())
     try:
-        main()
-    except Exception as exc:  # noqa: BLE001
-        print(f"LỖI: {exc}", file=sys.stderr)
+        db.record_training_run(version, metrics, train, test, publish)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        target.unlink(missing_ok=True)
+        raise
+    return metrics
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dry-run', action='store_true', help='Fit/evaluate in memory; do not write artifacts or database')
+    args = parser.parse_args()
+    try:
+        main(args.dry_run)
+    except Exception as exc:
+        print(f'Training stopped: {type(exc).__name__}: {exc}', file=sys.stderr)
         sys.exit(1)
