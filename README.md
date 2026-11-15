@@ -224,5 +224,3 @@ Compose khởi chạy SQL Server, Redis, migration, API và website. Hosting cô
 ## Phạm vi repository
 
 Repository công khai gồm mã nguồn sản phẩm, migration, ảnh sản phẩm và cấu hình mẫu. `.env` thực tế, mật khẩu, khóa, bản sao lưu database, dataset riêng, test, ghi chú, báo cáo và sơ đồ nội bộ được bỏ qua bằng `.gitignore`.
-
-Không đưa dữ liệu cá nhân hoặc tài khoản demo local lên môi trường công khai. Kiểm thử tải, bảo mật và cấu hình dịch vụ thực tế cần được thực hiện trước khi vận hành production.
