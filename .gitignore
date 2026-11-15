@@ -73,7 +73,6 @@ recordings/
 *.pptx
 *.xls
 *.xlsx
-*.drawio
 *.puml
 
 # Tests, temporary verification scripts and their outputs
