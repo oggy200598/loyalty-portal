@@ -9,11 +9,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { CurrentUser } from '../auth/current-user.decorator';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/auth.decorators';
+import { JwtAuthGuard } from '../auth/auth.guards';
 import { ParseBigIntPipe } from '../common/parse-bigint.pipe';
 import { AddressesService } from './addresses.service';
-import { AddressDto, AddressVersionDto, UpdateAddressDto } from './address.dto';
+import { AddressDto, AddressVersionDto, UpdateAddressDto } from './users.dto';
+
 @Controller('users/me/addresses')
 @UseGuards(JwtAuthGuard)
 export class AddressesController {

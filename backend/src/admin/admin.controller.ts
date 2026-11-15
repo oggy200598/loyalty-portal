@@ -10,12 +10,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { UsersQueryDto } from './admin-users-query.dto';
-import { AdminManagementService } from './admin-management.service';
+import { JwtAuthGuard, RolesGuard } from '../auth/auth.guards';
+import { Roles, CurrentUser } from '../auth/auth.decorators';
 import {
+  UsersQueryDto,
   CategoriesQueryDto,
   CategoryDto,
   ProductDto,
@@ -23,8 +21,8 @@ import {
   UpdateCategoryDto,
   UpdateProductDto,
   UpdateUserDto,
-} from './admin-management.dto';
-import { CurrentUser } from '../auth/current-user.decorator';
+} from './admin.dto';
+import { AdminManagementService } from './admin-management.service';
 import { ParseBigIntPipe } from '../common/parse-bigint.pipe';
 
 /**

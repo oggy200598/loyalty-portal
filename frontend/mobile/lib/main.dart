@@ -14,7 +14,6 @@ import 'shop/order_provider.dart';
 import 'shop/product_provider.dart';
 import 'shop/cart_service.dart';
 import 'shop/order_service.dart';
-import 'shop/product_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,7 +79,7 @@ class RiskMindApp extends StatelessWidget {
       locale: const Locale('vi', 'VN'),
       supportedLocales: const [Locale('vi', 'VN')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      title: 'RiskMind AI',
+      title: 'RiskMind',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       routerConfig: router,

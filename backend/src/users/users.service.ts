@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { ProfileDto } from './profile.dto';
+import { ProfileDto } from './users.dto';
 
 const profileSelect = {
   id: true,

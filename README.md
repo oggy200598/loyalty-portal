@@ -66,6 +66,19 @@ ml/                         # Đặc trưng và công cụ chuẩn bị dữ li�
 ml-service/                 # Huấn luyện và API đánh giá rủi ro
 ```
 
+Trong `backend/src`, controller, service và DTO nằm cạnh nhau theo nhóm nghiệp vụ. Các phần nhỏ dùng chung được gom như sau:
+
+| File | Nội dung |
+| --- | --- |
+| `auth/auth.decorators.ts` | Vai trò, metadata xác thực và lấy người dùng hiện tại |
+| `auth/auth.guards.ts` | Kiểm tra phiên đăng nhập và quyền truy cập |
+| `users/users.dto.ts` | Dữ liệu hồ sơ và sổ địa chỉ |
+| `orders/orders.dto.ts` | Dữ liệu tạo đơn, báo giá, truy vấn và cập nhật trạng thái |
+| `admin/admin.dto.ts` | Dữ liệu quản lý người dùng, danh mục và sản phẩm |
+| `payments/payment-signatures.ts` | Ký và xác minh giao dịch MoMo, VNPay |
+
+API rủi ro tập trung trong `risk/risk.controller.ts`; API thống kê quản trị và người bán nằm trong `statistics/statistics.controller.ts`. Các service xử lý đơn hàng, thanh toán và sổ điểm được giữ riêng theo nghiệp vụ.
+
 ## Chạy trên máy phát triển
 
 ### 1. Chuẩn bị

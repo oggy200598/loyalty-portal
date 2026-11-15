@@ -2,7 +2,7 @@ import { orderCharts } from '../common/dashboard-charts';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { serialize } from '../common/serialize';
-import { UsersQueryDto } from './admin-users-query.dto';
+import { UsersQueryDto } from './admin.dto';
 
 @Injectable()
 export class AdminService {

@@ -5,45 +5,45 @@ import 'package:provider/provider.dart';
 import '../accounts/auth_provider.dart';
 import '../common/api_client.dart';
 import '../common/format.dart';
+import '../common/theme.dart';
 import 'loyalty_service.dart';
 
 class LoyaltyScreen extends StatefulWidget {
   final String initialTab;
-  const LoyaltyScreen({super.key, this.initialTab = 'rewards'});
+  const LoyaltyScreen({super.key, this.initialTab = 'overview'});
   @override
   State<LoyaltyScreen> createState() => _LoyaltyScreenState();
 }
 
 class _LoyaltyScreenState extends State<LoyaltyScreen> {
   static const sections = {
-    'rewards': 'Đổi thưởng',
-    'redemptions': 'Phiếu ưu đãi',
+    'overview': 'Thành viên',
     'transactions': 'Lịch sử điểm',
-    'complaints': 'Hỗ trợ',
+    'rewards': 'Đổi ưu đãi',
+    'redemptions': 'Phiếu ưu đãi đã đổi',
+    'complaints': 'Khiếu nại',
   };
   late final LoyaltyService _service;
   late String _tab;
   Map<String, dynamic>? _summary;
+  Map<String, dynamic>? _charts;
+  String _range = '30';
   List<Map<String, dynamic>> _rows = [];
   int _page = 1, _totalPages = 1;
+  int _generation = 0;
   bool _loading = false, _acting = false;
   String? _error;
   final _form = GlobalKey<FormState>();
   final _message = TextEditingController(), _order = TextEditingController();
   String _type = 'MISSING_POINTS';
   Map<String, String> _filters = {};
-  num number(dynamic value) => num.tryParse('$value') ?? 0;
-  String date(dynamic value) {
-    final parsed = DateTime.tryParse('$value')?.toLocal();
-    return parsed == null ? '' : '${parsed.day}/${parsed.month}/${parsed.year}';
-  }
 
   @override
   void initState() {
     super.initState();
     _tab = sections.containsKey(widget.initialTab)
         ? widget.initialTab
-        : 'rewards';
+        : 'overview';
     _service = LoyaltyService(
       context.read<ApiClient>(),
       context.read<AuthProvider>().user!.id,
@@ -59,27 +59,43 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_generation;
+    final tab = _tab, page = _page;
+    final filters = Map<String, String>.of(_filters);
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final summary = await _service.summary();
-      final data = _tab == 'rewards'
-          ? {'data': await _service.rewards()}
-          : await _service.page(_tab, _page, _filters);
-      if (!mounted) return;
+      final results = await Future.wait([
+        _service.summary(),
+        tab == 'overview'
+            ? Future.value(<String, dynamic>{'data': []})
+            : tab == 'rewards'
+            ? _service.rewards().then((rows) => <String, dynamic>{'data': rows})
+            : _service.page(tab, page, filters),
+        tab == 'overview'
+            ? _service.charts()
+            : Future.value(<String, dynamic>{}),
+      ]);
+      final data = results[1];
+      if (!mounted || generation != _generation) return;
       setState(() {
-        _summary = summary;
+        _summary = results[0];
+        if (tab == 'overview') _charts = results[2];
         _rows = (data['data'] as List).cast<Map<String, dynamic>>();
         _totalPages = number(
           (data['pagination'] as Map?)?['totalPages'] ?? 1,
         ).toInt();
       });
     } catch (e) {
-      if (mounted) setState(() => _error = errorMessage(e));
+      if (mounted && generation == _generation) {
+        setState(() => _error = errorMessage(e));
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _generation) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -152,7 +168,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                     child: Text(
                       range == null
                           ? 'Chọn khoảng ngày'
-                          : '${date(range!.start.toIso8601String())} – ${date(range!.end.toIso8601String())}',
+                          : '${formatDate(range!.start.toIso8601String())} – ${formatDate(range!.end.toIso8601String())}',
                     ),
                   ),
                 ],
@@ -320,7 +336,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                         'Hạng: ${(member['tier'] as Map?)?['name'] ?? ''} · Chi tiêu: ${formatCurrency(number(member['qualifying_spend']))}',
                       ),
                       Text(
-                        'Chu kỳ hạng kết thúc: ${date(member['cycleEndsAt'])}',
+                        'Chu kỳ hạng kết thúc: ${formatDate(member['cycleEndsAt'])}',
                       ),
                       if (number(member['pointsDebt']) > 0)
                         Text(
@@ -333,7 +349,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                       for (final lot
                           in (member['expiringLots'] as List? ?? []).take(3))
                         Text(
-                          '${lot['remaining']} điểm hết hạn ${date(lot['expires_at'])}',
+                          '${lot['remaining']} điểm hết hạn ${formatDate(lot['expires_at'])}',
                         ),
                     ],
                   ),
@@ -403,13 +419,18 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                 child: Text(_error!, style: const TextStyle(color: Colors.red)),
               ),
             if (_tab == 'complaints') _complaintForm(busy),
-            if (!_loading && _rows.isEmpty && _error == null)
+            if (_tab == 'overview' && !_loading && _charts != null)
+              _pointChart(),
+            if (_tab != 'overview' &&
+                !_loading &&
+                _rows.isEmpty &&
+                _error == null)
               const Padding(
                 padding: EdgeInsets.all(24),
                 child: Text('Chưa có dữ liệu.'),
               ),
             for (final row in _rows) _row(row, member, busy),
-            if (_tab != 'rewards')
+            if (!['overview', 'rewards'].contains(_tab))
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -435,6 +456,113 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
                     icon: const Icon(Icons.chevron_right),
                   ),
                 ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pointChart() {
+    final rows =
+        ((_charts![_range == 'all' ? 'monthly' : 'daily'] as List?) ?? [])
+            .cast<Map<String, dynamic>>();
+    final visible = _range == '7' && rows.length > 7
+        ? rows.sublist(rows.length - 7)
+        : rows;
+    var peak = 1.0;
+    num added = 0, deducted = 0;
+    for (final row in visible) {
+      added += number(row['added']);
+      deducted += number(row['deducted']);
+      for (final key in ['added', 'deducted']) {
+        final value = number(row[key]).toDouble();
+        if (value > peak) peak = value;
+      }
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Biến động điểm thưởng',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            DropdownButton<String>(
+              value: _range,
+              isExpanded: true,
+              items: const [
+                DropdownMenuItem(value: '7', child: Text('7 ngày gần nhất')),
+                DropdownMenuItem(value: '30', child: Text('30 ngày gần nhất')),
+                DropdownMenuItem(
+                  value: 'all',
+                  child: Text('Tất cả · theo tháng'),
+                ),
+              ],
+              onChanged: (value) => setState(() => _range = value!),
+            ),
+            Text(
+              'Điểm cộng: $added',
+              style: const TextStyle(color: AppColors.accent),
+            ),
+            Text(
+              'Điểm trừ: $deducted',
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            if (added == 0 && deducted == 0)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text('Chưa có dữ liệu điểm thưởng trong khoảng này.'),
+              )
+            else
+              SizedBox(
+                height: 160,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: visible
+                      .map(
+                        (row) => Tooltip(
+                          message:
+                              '${formatDate(row['day'])}: +${row['added']} / −${row['deducted']} điểm',
+                          triggerMode: TooltipTriggerMode.tap,
+                          child: SizedBox(
+                            width: 54,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    for (final key in ['added', 'deducted'])
+                                      Container(
+                                        margin: const EdgeInsets.symmetric(
+                                          horizontal: 2,
+                                        ),
+                                        width: 12,
+                                        height: 112 * number(row[key]) / peak,
+                                        color: key == 'added'
+                                            ? AppColors.accent
+                                            : AppColors.textSecondary,
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _range == 'all'
+                                      ? '${row['day']}'.substring(0, 7)
+                                      : '${row['day']}'.substring(5),
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
           ],
         ),
@@ -493,7 +621,7 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
               Text('${(row['reward'] as Map?)?['name'] ?? 'Voucher'}'),
               SelectableText('${row['coupon_code']}'),
               Text(
-                'Hết hạn ${date(row['expires_at'])} · ${valid ? 'Có thể sử dụng' : 'Đã dùng hoặc hết hiệu lực'}',
+                'Hết hạn ${formatDate(row['expires_at'])} · ${valid ? 'Có thể sử dụng' : 'Đã dùng hoặc hết hiệu lực'}',
               ),
               Wrap(
                 spacing: 8,
@@ -531,20 +659,14 @@ class _LoyaltyScreenState extends State<LoyaltyScreen> {
         child: ListTile(
           title: Text('${row['points']} điểm · ${valueLabel(row['kind'])}'),
           subtitle: Text(
-            '${row['description'] ?? ''}\n${date(row['created_at'])}',
+            '${row['description'] ?? ''}\n${formatDate(row['created_at'])}',
           ),
         ),
       );
     }
-    const statuses = {
-      'OPEN': 'Đã gửi',
-      'IN_REVIEW': 'Đang xử lý',
-      'RESOLVED': 'Đã giải quyết',
-      'REJECTED': 'Từ chối',
-    };
     return Card(
       child: ListTile(
-        title: Text(statuses[row['status']] ?? valueLabel(row['status'])),
+        title: Text(valueLabel(row['status'])),
         subtitle: Text(
           '${row['message']}\n${row['response'] ?? 'Chưa có phản hồi'}',
         ),

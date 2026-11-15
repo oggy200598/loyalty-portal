@@ -9,7 +9,7 @@ import {
 import { LoyaltyOrdersService } from '../loyalty/loyalty-orders.service';
 import { ConfirmCodPaymentDto } from '../loyalty/loyalty.dto';
 import { PrismaService } from '../database/prisma.service';
-import { CreateOrderDto } from './create-order.dto';
+import { CreateOrderDto } from './orders.dto';
 import { serialize } from '../common/serialize';
 import { ShopOwnershipService } from '../common/shop-ownership.service';
 import { RiskScoringService } from '../risk/risk-scoring.service';
@@ -33,6 +33,7 @@ const VALID_STATUSES = [
   'FAILED',
   'NON_RECEIVED',
 ] as const;
+
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Chờ xác nhận',
   CONFIRMED: 'Đã xác nhận',

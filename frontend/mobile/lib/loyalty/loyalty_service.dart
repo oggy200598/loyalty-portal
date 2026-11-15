@@ -8,6 +8,8 @@ class LoyaltyService {
   LoyaltyService(this.client, this.userId);
   Future<Map<String, dynamic>> summary() async =>
       Map<String, dynamic>.from(await client.get('/loyalty/me'));
+  Future<Map<String, dynamic>> charts() async =>
+      Map<String, dynamic>.from(await client.get('/loyalty/charts'));
   Future<List<Map<String, dynamic>>> rewards() async =>
       (await client.get('/loyalty/rewards') as List)
           .cast<Map<String, dynamic>>();

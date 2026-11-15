@@ -2,7 +2,6 @@ import '../common/api_client.dart';
 import 'package:flutter/foundation.dart';
 
 import 'product.dart';
-import 'product_service.dart';
 
 class ProductProvider extends ChangeNotifier {
   final ProductService productService;
@@ -62,4 +61,32 @@ class ProductProvider extends ChangeNotifier {
   Future<List<Product>> getProductsByCategory(String categoryId) {
     return productService.getProductsByCategory(categoryId);
   }
+}
+
+class ProductService {
+  final ApiClient client;
+  ProductService(this.client);
+
+  Future<List<Product>> _products(String path) async {
+    final data = await client.get(path) as List;
+    return data.cast<Map<String, dynamic>>().map(Product.fromJson).toList();
+  }
+
+  Future<List<Product>> getProducts({int limit = 36}) =>
+      _products('/products?limit=$limit');
+
+  Future<Product> getProductById(String id) async => Product.fromJson(
+    await client.get('/products/$id') as Map<String, dynamic>,
+  );
+
+  Future<List<ProductCategory>> getCategories() async {
+    final data = await client.get('/categories') as List;
+    return data
+        .cast<Map<String, dynamic>>()
+        .map(ProductCategory.fromJson)
+        .toList();
+  }
+
+  Future<List<Product>> getProductsByCategory(String categoryId) =>
+      _products('/categories/$categoryId/products');
 }

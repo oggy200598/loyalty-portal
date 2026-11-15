@@ -10,9 +10,8 @@ import {
 } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { AddCartItemDto, UpdateCartItemDto } from './cart.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
+import { JwtAuthGuard, RolesGuard } from '../auth/auth.guards';
+import { CurrentUser } from '../auth/auth.decorators';
 
 @Controller('cart')
 @UseGuards(JwtAuthGuard, RolesGuard)

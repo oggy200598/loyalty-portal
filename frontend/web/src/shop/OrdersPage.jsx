@@ -2,16 +2,20 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../common/api';
 import { useAuth } from '../accounts/authContext';
-import { formatCurrency, formatDateTime } from '../common/format';
+import { formatCurrency, formatDateTime, valueLabel } from '../common/format';
 
 const STATUS_META = {
-  ALL: { label: 'Tất cả', color: '#666' },
-  CONFIRMED: { label: 'Chờ xác nhận', color: '#f59e0b' },
-  PROCESSING: { label: 'Đang xử lý', color: '#3b82f6' },
-  SHIPPING: { label: 'Đang giao', color: '#8b5cf6' },
-  DELIVERED: { label: 'Đã giao', color: '#10b981' },
-  COMPLETED: { label: 'Hoàn thành', color: '#16a34a' },
-  CANCELLED: { label: 'Đã hủy', color: '#dc2626' },
+  ALL: '#666',
+  PENDING: '#f59e0b',
+  CONFIRMED: '#f59e0b',
+  PROCESSING: '#3b82f6',
+  SHIPPING: '#8b5cf6',
+  DELIVERED: '#16a34a',
+  COMPLETED: '#16a34a',
+  CANCELLED: '#dc2626',
+  RETURNED: '#dc2626',
+  FAILED: '#dc2626',
+  NON_RECEIVED: '#dc2626',
 };
 
 function OrdersPage() {
@@ -76,7 +80,7 @@ function OrdersPage() {
 
       {/* Tabs */}
       <ul className="nav nav-pills gap-2 mb-3 flex-nowrap overflow-auto">
-        {Object.entries(STATUS_META).map(([key, meta]) => (
+        {Object.keys(STATUS_META).map((key) => (
           <li key={key} className="nav-item">
             <button
               type="button"
@@ -91,7 +95,7 @@ function OrdersPage() {
                 setTab(key);
               }}
             >
-              {meta.label}
+              {key === 'ALL' ? 'Tất cả' : valueLabel(key)}
             </button>
           </li>
         ))}
@@ -123,9 +127,9 @@ function OrdersPage() {
 
                   <span
                     className="badge rounded-pill"
-                    style={{ background: `${meta.color}1a`, color: meta.color }}
+                    style={{ background: `${meta}1a`, color: meta }}
                   >
-                    {meta.label}
+                    {valueLabel(order.status)}
                   </span>
 
                   <small className="text-muted ms-auto">

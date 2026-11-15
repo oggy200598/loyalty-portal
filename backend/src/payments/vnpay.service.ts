@@ -13,7 +13,7 @@ import {
   signVnpay,
   verifyVnpay,
   vnpayDate,
-} from './vnpay-signature';
+} from './payment-signatures';
 
 const eligibleStatuses = [
   'PENDING',
@@ -23,6 +23,7 @@ const eligibleStatuses = [
   'DELIVERED',
   'COMPLETED',
 ];
+
 @Injectable()
 export class VnpayService {
   constructor(

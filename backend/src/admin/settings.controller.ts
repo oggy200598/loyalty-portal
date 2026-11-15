@@ -1,10 +1,9 @@
 import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
-import { CurrentUser } from '../auth/current-user.decorator';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
+import { CurrentUser, Roles } from '../auth/auth.decorators';
+import { JwtAuthGuard, RolesGuard } from '../auth/auth.guards';
 import { SettingsDto } from './settings.dto';
 import { SettingsService } from './settings.service';
+
 @Controller()
 export class SettingsController {
   constructor(private readonly settings: SettingsService) {}

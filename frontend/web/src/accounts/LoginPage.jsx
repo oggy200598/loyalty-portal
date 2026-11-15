@@ -21,19 +21,17 @@ function LoginPage() {
       const response = await login(form);
       const role = response.user?.role;
 
-      // Role không hợp lệ → logout + về /login
       if (!['BUYER', 'SELLER', 'ADMIN'].includes(role)) {
         logout();
         navigate('/dang-nhap', { replace: true });
         return;
       }
 
-      // Redirect theo role — KHÔNG redirect tất cả về "/"
-      // Chỉ quay lại trang "from" nếu user đã chủ động đi tới đó.
-      const from = location.state?.from?.pathname;
+      const from = location.state?.from;
+      const path = from?.pathname;
       const target =
-        from && !from.startsWith('/dang-nhap') && !from.startsWith('/dang-ky')
-          ? from
+        path?.startsWith('/') && !path.startsWith('//') && !path.startsWith('/dang-nhap') && !path.startsWith('/dang-ky')
+          ? { pathname: path, search: from.search ?? '', hash: from.hash ?? '' }
           : getRoleHome(role);
 
       navigate(target, { replace: true });

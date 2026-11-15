@@ -1,5 +1,38 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../common/api';
 import { LOYALTY_LABELS } from './loyaltyUtils';
+
+export function LoyaltyMemberPicker({ value, selectedLabel, onChange, disabled }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (value) return;
+    let active = true;
+    const timer = setTimeout(async () => {
+      try {
+        const response = await api.getAdminLoyalty('members', 1, { q: query.trim(), status: 'ACTIVE' });
+        if (active) { setResults(response.data); setError(''); }
+      } catch (err) { if (active) { setResults([]); setError(err.message || 'Không tải được danh sách thành viên.'); } }
+    }, 300);
+    return () => { active = false; clearTimeout(timer); };
+  }, [query, value]);
+
+  if (value) return <div className="border rounded p-3 d-flex align-items-center justify-content-between gap-2">
+    <div><span className="small text-muted d-block">Thành viên nhận điều chỉnh</span><strong>{selectedLabel || 'Thành viên đã chọn từ hồ sơ'}</strong></div>
+    <button type="button" disabled={disabled} className="btn btn-sm btn-outline-secondary" onClick={() => { onChange('', ''); setQuery(''); setResults(null); }}>Thay đổi</button>
+  </div>;
+  return <div>
+    <label className="w-100">Tìm thành viên<input type="search" className="form-control mt-1" placeholder="Tên, email hoặc số điện thoại" maxLength={150} value={query} disabled={disabled} onChange={event => { setQuery(event.target.value); setResults(null); }} /></label>
+    {error && <p className="text-danger small mt-2" role="alert">{error}</p>}
+    {results === null ? <p className="small text-muted mt-2" role="status">Đang tìm thành viên…</p> : results.length ? <div className="list-group mt-2" style={{ maxHeight: 240, overflowY: 'auto' }} aria-label="Kết quả tìm thành viên">
+      {results.map(member => <button type="button" className="list-group-item list-group-item-action" disabled={disabled} key={member.user_id} onClick={() => onChange(member.user_id, `${member.users.full_name || member.users.email} · ${member.users.email}`)}>
+        <strong className="d-block">{member.users.full_name || member.users.email}</strong><span className="small text-muted">{member.users.email}{member.users.phone ? ` · ${member.users.phone}` : ''} · {member.balance} điểm</span>
+      </button>)}
+    </div> : !error && <p className="small text-muted mt-2">Không tìm thấy thành viên đang hoạt động. Thử tên hoặc thông tin khác.</p>}
+    <small className="text-muted">Chọn đúng thành viên trong kết quả trước khi điều chỉnh điểm. Nhập thêm thông tin để thu hẹp danh sách.</small>
+  </div>;
+}
 
 export function LoyaltyFilters({ onApply, statuses = [], transactions = false, dates = true, members = false, audit = false, actors = [] }) {
   const [values, setValues] = useState({});

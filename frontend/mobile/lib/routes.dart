@@ -70,7 +70,7 @@ GoRouter buildRouter(AuthProvider auth) {
       GoRoute(
         path: '/loyalty',
         builder: (_, state) => LoyaltyScreen(
-          initialTab: state.uri.queryParameters['tab'] ?? 'rewards',
+          initialTab: state.uri.queryParameters['tab'] ?? 'overview',
         ),
       ),
       ShellRoute(

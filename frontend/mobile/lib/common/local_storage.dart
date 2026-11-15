@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Lưu trữ token + cart/orders cục bộ bằng SharedPreferences.
+/// Lưu phiên đăng nhập và giỏ hàng theo tài khoản.
 class LocalStorage {
   String? userId;
 
@@ -16,7 +16,6 @@ class LocalStorage {
 
   static const _tokenKey = 'accessToken';
   static const _cartKey = 'cart';
-  static const _ordersKey = 'orders';
 
   Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -58,10 +57,4 @@ class LocalStorage {
 
   Future<void> setCart(List<Map<String, dynamic>> value) =>
       setJsonList(_scoped(_cartKey), value);
-
-  Future<List<Map<String, dynamic>>> getOrders() =>
-      getJsonList(_scoped(_ordersKey));
-
-  Future<void> setOrders(List<Map<String, dynamic>> value) =>
-      setJsonList(_scoped(_ordersKey), value);
 }

@@ -31,10 +31,10 @@ function AccountPage() {
           desc: 'Danh sách sản phẩm đã thích',
         },
         {
-          to: '/ma-giam-gia',
+          to: '/khach-hang-than-thiet?tab=redemptions',
           icon: 'bi-ticket-perforated',
           title: 'Phiếu ưu đãi của tôi',
-          desc: 'Xem và lưu phiếu ưu đãi khuyến mãi',
+          desc: 'Xem và sử dụng phiếu ưu đãi đã đổi bằng điểm',
         },
         {
           to: '/thong-bao',

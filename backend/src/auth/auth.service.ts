@@ -6,11 +6,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../database/prisma.service';
 import type { Prisma } from '../../generated/prisma/client';
-import { RoleName } from './roles.decorator';
+import { RoleName } from './auth.decorators';
 import { enrollMember } from '../loyalty/enroll-member';
+
+import * as bcrypt from 'bcryptjs';
 
 type DatabaseAuthUser = Prisma.usersGetPayload<{
   include: { user_roles: { include: { roles: true } } };

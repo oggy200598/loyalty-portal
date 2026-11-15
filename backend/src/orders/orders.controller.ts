@@ -3,7 +3,9 @@ import {
   CancelOwnOrderDto,
   OrdersQueryDto,
   OrderStatusDto,
-} from './orders-query.dto';
+  CreateOrderDto,
+  QuoteOrderDto,
+} from './orders.dto';
 import { ParseBigIntPipe } from '../common/parse-bigint.pipe';
 import {
   Controller,
@@ -18,11 +20,8 @@ import {
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CheckoutService } from './checkout.service';
-import { CreateOrderDto, QuoteOrderDto } from './create-order.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { CurrentUser } from '../auth/current-user.decorator';
+import { JwtAuthGuard, RolesGuard } from '../auth/auth.guards';
+import { Roles, CurrentUser } from '../auth/auth.decorators';
 
 @Controller('orders')
 @UseGuards(JwtAuthGuard, RolesGuard)

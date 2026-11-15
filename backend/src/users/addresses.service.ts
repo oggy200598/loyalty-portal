@@ -5,7 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { AddressDto, UpdateAddressDto } from './address.dto';
+import { AddressDto, UpdateAddressDto } from './users.dto';
+
 @Injectable()
 export class AddressesService {
   constructor(private readonly prisma: PrismaService) {}

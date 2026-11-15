@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../common/api';
 import { useAuth } from '../accounts/authContext';
@@ -13,6 +13,9 @@ function CartPage() {
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState({});
   const [mutating, setMutating] = useState(false);
+  const mutationLock = useRef(false);
+  const [actionError, setActionError] = useState('');
+  const [notice, setNotice] = useState('');
 
   function load() {
     if (!isAuthenticated) return Promise.resolve();
@@ -43,32 +46,45 @@ function CartPage() {
   );
 
   async function handleQuantity(item, quantity) {
-    if (quantity < 1 || mutating) return;
-    const capped = Math.min(quantity, item.stockQuantity || quantity);
+    if (quantity < 1 || mutationLock.current || item.stockQuantity < 1) return;
+    const capped = Math.min(quantity, item.stockQuantity);
+    if (capped === item.quantity) return;
+    mutationLock.current = true;
     try {
       setMutating(true);
+      setActionError(''); setNotice('');
       await api.updateCartItem(item.id, capped);
       setItems((prev) =>
         prev.map((entry) =>
           entry.id === item.id ? { ...entry, quantity: capped } : entry,
         ),
       );
-    } catch {
-      // giữ nguyên nếu lỗi
+    } catch (err) {
+      setActionError(err.message || 'Chưa cập nhật được số lượng. Vui lòng thử lại.');
     } finally {
+      mutationLock.current = false;
       setMutating(false);
     }
   }
 
-  async function handleRemove(item) {
-    if (mutating) return;
+  async function handleRemove(targets) {
+    if (mutationLock.current || !targets.length) return;
+    mutationLock.current = true;
+    const removed = new Set();
+    let failure = '';
     try {
       setMutating(true);
-      await api.removeCartItem(item.id);
-      setItems((prev) => prev.filter((entry) => entry.id !== item.id));
-    } catch {
-      // bỏ qua
+      setActionError(''); setNotice('');
+      for (const item of targets) {
+        try { await api.removeCartItem(item.id); removed.add(item.id); }
+        catch (err) { failure = err.message || 'Vui lòng thử lại.'; }
+      }
+      setItems((prev) => prev.filter((entry) => !removed.has(entry.id)));
+      setSelected((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removed.has(id))));
+      if (failure) setActionError(`Chưa xóa được ${targets.length - removed.size} sản phẩm. ${failure}`);
+      if (removed.size) setNotice(`Đã xóa ${removed.size} sản phẩm khỏi giỏ hàng.`);
     } finally {
+      mutationLock.current = false;
       setMutating(false);
     }
   }
@@ -81,6 +97,7 @@ function CartPage() {
 
   const allSelected =
     items.length > 0 && items.every((item) => selected[item.id]);
+  const hasUnavailable = selectedItems.some((item) => item.stockQuantity < item.quantity);
 
   if (!isAuthenticated) {
     return (
@@ -88,7 +105,7 @@ function CartPage() {
         <i className="bi bi-lock" style={{ fontSize: 56, color: '#ddd' }} />
         <h1 className="h5 mt-3">Vui lòng đăng nhập để xem giỏ hàng</h1>
         <Link
-          to="/dang-nhap"
+          to="/dang-nhap" state={{ from: { pathname: '/gio-hang' } }}
           className="btn text-white px-4"
           style={{ background: '#ee4d2d' }}
         >
@@ -135,6 +152,8 @@ function CartPage() {
   return (
     <div className="container py-4">
       <h1 className="h5 fw-bold mb-3">Giỏ hàng ({items.length})</h1>
+      {actionError && <div className="alert alert-danger" role="alert">{actionError}</div>}
+      {notice && <div className="alert alert-success" role="status">{notice}</div>}
 
       <div className="row g-3">
         <div className="col-lg-8">
@@ -147,6 +166,8 @@ function CartPage() {
                 type="checkbox"
                 className="form-check-input mt-0"
                 checked={allSelected}
+                disabled={mutating}
+                aria-label="Chọn tất cả sản phẩm"
                 onChange={toggleAll}
               />
 
@@ -157,9 +178,8 @@ function CartPage() {
               <button
                 type="button"
                 className="btn btn-sm btn-link text-danger text-decoration-none ms-auto p-0"
-                onClick={() => {
-                  selectedItems.forEach(handleRemove);
-                }}
+                disabled={mutating || selectedItems.length === 0}
+                onClick={() => handleRemove(selectedItems)}
               >
                 Xóa đã chọn
               </button>
@@ -171,6 +191,8 @@ function CartPage() {
                   type="checkbox"
                   className="form-check-input mt-0"
                   checked={Boolean(selected[item.id])}
+                  disabled={mutating}
+                  aria-label={`Chọn ${item.name}`}
                   onChange={(event) =>
                     setSelected((prev) => ({
                       ...prev,
@@ -198,11 +220,15 @@ function CartPage() {
                     <button
                       type="button"
                       className="btn btn-sm btn-link text-danger p-0"
-                      onClick={() => handleRemove(item)}
+                      disabled={mutating}
+                      aria-label={`Xóa ${item.name}`}
+                      onClick={() => handleRemove([item])}
                     >
                       <i className="bi bi-trash3" />
                     </button>
                   </div>
+
+                  {item.stockQuantity < item.quantity && <p className="small text-danger mt-2 mb-0">{item.stockQuantity < 1 ? 'Sản phẩm đã hết hàng. Bỏ chọn hoặc xóa để tiếp tục.' : `Chỉ còn ${item.stockQuantity} sản phẩm. Giảm số lượng để tiếp tục.`}</p>}
 
                   <div className="d-flex align-items-center gap-3 mt-2">
                     <div className="input-group input-group-sm" style={{ width: 120 }}>
@@ -273,11 +299,12 @@ function CartPage() {
               type="button"
               className="btn w-100 text-white"
               style={{ background: '#ee4d2d' }}
-              disabled={selectedItems.length === 0}
+              disabled={mutating || selectedItems.length === 0 || hasUnavailable}
               onClick={() => navigate('/thanh-toan', { state: { selectedCartIds: selectedItems.map((item) => item.id) } })}
             >
               Thanh toán ({selectedItems.length})
             </button>
+            {hasUnavailable && <p className="small text-danger mt-2 mb-0">Kiểm tra lại số lượng hoặc bỏ chọn sản phẩm không còn đủ hàng.</p>}
 
             <Link
               to="/san-pham"

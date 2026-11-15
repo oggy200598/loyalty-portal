@@ -43,7 +43,6 @@ class _SearchScreenState extends State<SearchScreen> {
 
       // Backend chưa có /products?search= nên tải danh sách
       // rồi lọc client-side theo từ khóa (không dấu).
-      // TODO(backend): thêm query param search khi API sẵn sàng.
       final normalized = _normalize(widget.query);
       _all = _all
           .where((product) => _normalize(product.name).contains(normalized))

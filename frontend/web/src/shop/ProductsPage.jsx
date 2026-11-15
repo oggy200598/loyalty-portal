@@ -3,25 +3,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../common/api';
 import {
   formatCurrency,
+  getCouponLabel,
   formatSold,
   normalizeText,
 } from '../common/format';
-
-function getCouponLabel(coupon) {
-  if (coupon.discountType === 'FREE_SHIP') {
-    return 'Miễn phí vận chuyển';
-  }
-
-  if (coupon.discountType === 'PERCENT') {
-    return `Giảm ${coupon.discountValue}%`;
-  }
-
-  if (coupon.discountType === 'FIXED') {
-    return `Giảm ${formatCurrency(coupon.discountValue)}`;
-  }
-
-  return 'Ưu đãi';
-}
 
 function ProductsPage() {
   const [searchParams] = useSearchParams();

@@ -6,7 +6,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../database/prisma.service';
-import { CreateOrderDto, QuoteOrderDto } from './create-order.dto';
+import { CreateOrderDto, QuoteOrderDto } from './orders.dto';
 
 const money = (value: ConstructorParameters<typeof Prisma.Decimal>[0]) =>
   new Prisma.Decimal(value).toDecimalPlaces(2);

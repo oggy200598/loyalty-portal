@@ -3,26 +3,11 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../common/api';
 import {
   formatCurrency,
+  getCouponLabel,
   formatSold,
   categoryPath,
   categoryForPath,
 } from '../common/format';
-
-function getCouponLabel(coupon) {
-  if (coupon.discountType === 'FREE_SHIP') {
-    return 'Miễn phí vận chuyển';
-  }
-
-  if (coupon.discountType === 'PERCENT') {
-    return `Giảm ${coupon.discountValue}%`;
-  }
-
-  if (coupon.discountType === 'FIXED') {
-    return `Giảm ${formatCurrency(coupon.discountValue)}`;
-  }
-
-  return 'Ưu đãi';
-}
 
 function CategoryPage() {
   const { id } = useParams();

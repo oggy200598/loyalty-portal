@@ -15,7 +15,7 @@ import {
   UpdateCategoryDto,
   UpdateProductDto,
   UpdateUserDto,
-} from './admin-management.dto';
+} from './admin.dto';
 
 const productInclude = {
   shops: { select: { id: true, name: true, status: true } },
@@ -23,6 +23,7 @@ const productInclude = {
   product_images: { orderBy: { id: 'asc' as const } },
   product_variants: { orderBy: { id: 'asc' as const } },
 } satisfies Prisma.productsInclude;
+
 const userSelect = {
   id: true,
   email: true,
@@ -32,6 +33,7 @@ const userSelect = {
   updated_at: true,
   user_roles: { select: { roles: { select: { name: true } } } },
 } satisfies Prisma.usersSelect;
+
 const json = (value: unknown) =>
   JSON.stringify(value, (_key, entry: unknown) =>
     typeof entry === 'bigint' ? entry.toString() : entry,

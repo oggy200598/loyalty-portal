@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Ip, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './jwt-auth.guard';
-import { CurrentUser } from './current-user.decorator';
+import { JwtAuthGuard } from './auth.guards';
+import { CurrentUser } from './auth.decorators';
 import {
   ChangePasswordDto,
   ForgotPasswordDto,

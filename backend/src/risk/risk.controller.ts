@@ -1,14 +1,30 @@
 import { ParseBigIntPipe } from '../common/parse-bigint.pipe';
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { RiskService } from './risk.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { CurrentUser } from '../auth/current-user.decorator';
+import { RiskScoringService } from './risk-scoring.service';
+import { JwtAuthGuard, RolesGuard } from '../auth/auth.guards';
+import { Roles, CurrentUser } from '../auth/auth.decorators';
 
 @Controller('risk')
 export class RiskController {
-  constructor(private readonly riskService: RiskService) {}
+  constructor(
+    private readonly riskService: RiskService,
+    private readonly scoringService: RiskScoringService,
+  ) {}
+
+  @Post('score/:buyerId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  scoreBuyer(@Param('buyerId', new ParseUUIDPipe()) buyerId: string) {
+    return this.scoringService.scoreBuyer(buyerId);
+  }
 
   @Get('overview')
   @UseGuards(JwtAuthGuard, RolesGuard)

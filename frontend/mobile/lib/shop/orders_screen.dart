@@ -8,13 +8,17 @@ import 'order_provider.dart';
 import '../common/format.dart';
 
 const _statusMeta = {
-  'ALL': ('Tất cả', Color(0xFF666666)),
-  'CONFIRMED': ('Chờ xác nhận', Color(0xFFF59E0B)),
-  'PROCESSING': ('Đang xử lý', Color(0xFF3B82F6)),
-  'SHIPPING': ('Đang giao', Color(0xFF8B5CF6)),
-  'DELIVERED': ('Đã giao', Color(0xFF10B981)),
-  'COMPLETED': ('Hoàn thành', Color(0xFF16A34A)),
-  'CANCELLED': ('Đã hủy', Color(0xFFDC2626)),
+  'ALL': AppColors.textSecondary,
+  'PENDING': AppColors.warning,
+  'CONFIRMED': AppColors.warning,
+  'PROCESSING': Color(0xFF3B82F6),
+  'SHIPPING': Color(0xFF8B5CF6),
+  'DELIVERED': AppColors.success,
+  'COMPLETED': AppColors.success,
+  'CANCELLED': AppColors.danger,
+  'RETURNED': AppColors.danger,
+  'FAILED': AppColors.danger,
+  'NON_RECEIVED': AppColors.danger,
 };
 
 class OrdersScreen extends StatefulWidget {
@@ -25,14 +29,12 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  String _tab = 'ALL';
-
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<OrderProvider>().loadOrders();
+      if (mounted) context.read<OrderProvider>().loadOrders(requestedPage: 1);
     });
   }
 
@@ -40,12 +42,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<OrderProvider>();
 
-    final orders = _tab == 'ALL'
-        ? provider.orders
-        : provider.orders.where((order) => order.status == _tab).toList();
+    final orders = provider.orders;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Đơn hàng của tôi')),
+      appBar: AppBar(
+        title: const Text('Đơn hàng của tôi'),
+        actions: [
+          IconButton(
+            tooltip: 'Làm mới',
+            onPressed: provider.loading ? null : () => provider.loadOrders(),
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
 
       body: provider.loading && provider.orders.isEmpty
           ? const LoadingState(message: 'Đang tải đơn hàng...')
@@ -67,14 +76,23 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       vertical: 6,
                     ),
                     children: _statusMeta.entries.map((entry) {
-                      final selected = _tab == entry.key;
+                      final selected = provider.status == entry.key;
 
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: ChoiceChip(
-                          label: Text(entry.value.$1),
+                          label: Text(
+                            entry.key == 'ALL'
+                                ? 'Tất cả'
+                                : valueLabel(entry.key),
+                          ),
                           selected: selected,
-                          onSelected: (_) => setState(() => _tab = entry.key),
+                          onSelected: provider.loading
+                              ? null
+                              : (_) => provider.loadOrders(
+                                  requestedPage: 1,
+                                  requestedStatus: entry.key,
+                                ),
                           selectedColor: AppColors.accent.withValues(
                             alpha: .15,
                           ),
@@ -144,17 +162,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: meta.$2.withValues(
+                                              color: meta.withValues(
                                                 alpha: .12,
                                               ),
                                               borderRadius:
                                                   BorderRadius.circular(999),
                                             ),
                                             child: Text(
-                                              meta.$1,
+                                              valueLabel(order.status),
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: meta.$2,
+                                                color: meta,
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
@@ -231,6 +249,36 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           },
                         ),
                 ),
+                if (provider.totalPages > 1)
+                  SafeArea(
+                    top: false,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          tooltip: 'Trang trước',
+                          onPressed: provider.loading || provider.page <= 1
+                              ? null
+                              : () => provider.loadOrders(
+                                  requestedPage: provider.page - 1,
+                                ),
+                          icon: const Icon(Icons.chevron_left),
+                        ),
+                        Text('Trang ${provider.page} / ${provider.totalPages}'),
+                        IconButton(
+                          tooltip: 'Trang sau',
+                          onPressed:
+                              provider.loading ||
+                                  provider.page >= provider.totalPages
+                              ? null
+                              : () => provider.loadOrders(
+                                  requestedPage: provider.page + 1,
+                                ),
+                          icon: const Icon(Icons.chevron_right),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
     );

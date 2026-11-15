@@ -2,21 +2,9 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../common/api';
 import { useAuth } from '../accounts/authContext';
-import { categoryPath } from '../common/format';
+import { categoryPath, formatCurrency, normalizeText } from '../common/format';
 
 const SUGGESTION_KEYWORDS = ["Điện thoại", "Thời trang", "Gia dụng", "Điện tử", "Làm đẹp"];
-
-function normalizeText(value) {
-  return (value ?? '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
-function formatCurrency(value) {
-  if (value === null || value === undefined) return '---';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value));
-}
 
 function matchCategory(keyword, categories) {
   const normalized = normalizeText(keyword);

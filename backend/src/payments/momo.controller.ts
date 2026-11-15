@@ -10,12 +10,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { CurrentUser } from '../auth/current-user.decorator';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
+import { CurrentUser, Roles } from '../auth/auth.decorators';
+import { JwtAuthGuard, RolesGuard } from '../auth/auth.guards';
 import { ParseBigIntPipe } from '../common/parse-bigint.pipe';
 import { MomoService } from './momo.service';
+
 @Controller('payments/momo')
 export class MomoController {
   constructor(private readonly momo: MomoService) {}

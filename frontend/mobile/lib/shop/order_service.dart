@@ -9,10 +9,29 @@ class OrderService {
 
   OrderService(this.client);
 
-  Future<List<Order>> getOrders() async {
-    final data = await client.get('/orders');
-    final list = data is List ? data : (data['data'] as List? ?? []);
-    return list.whereType<Map<String, dynamic>>().map(_orderFromApi).toList();
+  Future<({List<Order> orders, int totalPages})> getOrders({
+    int page = 1,
+    String status = 'ALL',
+  }) async {
+    final data =
+        await client.get(
+              Uri(
+                path: '/orders',
+                queryParameters: {
+                  'page': '$page',
+                  'limit': '20',
+                  if (status != 'ALL') 'status': status,
+                },
+              ).toString(),
+            )
+            as Map<String, dynamic>;
+    return (
+      orders: (data['data'] as List)
+          .cast<Map<String, dynamic>>()
+          .map(_orderFromApi)
+          .toList(),
+      totalPages: (data['pagination']['totalPages'] as num).toInt(),
+    );
   }
 
   Future<Order?> getOrderById(String id) async {

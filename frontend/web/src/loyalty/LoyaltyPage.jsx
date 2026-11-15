@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../accounts/authContext';
 import { api } from '../common/api';
 import { PointChart } from '../common/DashboardCharts';
@@ -10,9 +10,23 @@ import './loyalty.css';
 
 const TABS = { overview: 'Thành viên', transactions: 'Lịch sử điểm', rewards: 'Đổi ưu đãi', redemptions: 'Phiếu ưu đãi đã đổi', complaints: 'Khiếu nại' };
 
+function rewardUnavailable(reward, member) {
+  if (!member) return 'Tham gia chương trình để đổi ưu đãi.';
+  if (Number(reward.stock) < 1) return 'Phần thưởng đã hết lượt đổi.';
+  if (Number(member.qualifying_spend) < Number(reward.minimum_tier_spend)) return `Cần chi tiêu xét hạng từ ${formatCurrency(reward.minimum_tier_spend)}.`;
+  const missing = Number(reward.points_cost) - Number(member.availablePoints);
+  return missing > 0 ? `Còn thiếu ${missing.toLocaleString('vi-VN')} điểm.` : '';
+}
+
 export default function LoyaltyPage() {
   const { user } = useAuth();
-  const [tab, setTab] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = Object.hasOwn(TABS, searchParams.get('tab')) ? searchParams.get('tab') : 'overview';
+  function setTab(value) {
+    const next = new URLSearchParams(searchParams);
+    if (value === 'overview') next.delete('tab'); else next.set('tab', value);
+    setSearchParams(next);
+  }
   const [page, setPage] = useState(1);
   const [summary, setSummary] = useState(null);
   const [charts, setCharts] = useState(null);
@@ -38,16 +52,24 @@ export default function LoyaltyPage() {
       if (request !== generation.current || signal?.aborted) return;
       setSummary(member); setRows(Array.isArray(result) ? result : result.data); setPagination(result.pagination ?? null); setError('');
       if (chartData) setCharts(chartData);
-    } catch (err) { if (request === generation.current && !signal?.aborted) setError(loyaltyError(err)); }
+    } catch (err) {
+      if (request === generation.current && !signal?.aborted) {
+        setError(loyaltyError(err)); setRows([]); setPagination(null);
+      }
+    }
     finally { if (request === generation.current && !signal?.aborted) setLoading(false); }
   }, [tab, page, filters]);
 
   useEffect(() => { const controller = new AbortController(); void Promise.resolve().then(() => { if (!controller.signal.aborted) return load(controller.signal); }); return () => controller.abort(); }, [load, user.id]);
 
-  async function mutate(action, message) {
+  async function mutate(action, message, nextTab) {
     if (busy) return;
     setBusy(true); setError(''); setNotice('');
-    try { await action(); setNotice(message); await load(); }
+    try {
+      await action(); setNotice(message);
+      if (nextTab && nextTab !== tab) { setLoading(true); setPage(1); setFilters({}); setTab(nextTab); }
+      else await load();
+    }
     catch (err) { setError(loyaltyError(err)); }
     finally { setBusy(false); }
   }
@@ -86,10 +108,10 @@ export default function LoyaltyPage() {
         </LoyaltyTable><p className="small text-muted mb-0">{summary.rule.name} · Hiệu lực từ {formatDateTime(summary.rule.effectiveAt)} · Chu kỳ {config.tierPeriodDays} ngày. Mỗi lần tích điểm lưu chính sách đã áp dụng.</p></LoyaltyPanel>
       </>}
       {tab === 'transactions' && <LoyaltyPanel title="Lịch sử điểm"><LoyaltyTable columns={['Thời gian', 'Loại', 'Nội dung', 'Điểm', 'Chính sách']} empty={!rows.length}>{rows.map((entry) => <tr key={String(entry.id)}><td>{formatDateTime(entry.created_at)}</td><td>{labels[entry.kind] ?? entry.kind}</td><td>{entry.description}<details><summary>Chi tiết giao dịch</summary><small>Mã: {entry.id} · Giá trị xét hạng: {formatCurrency(entry.qualifying_amount)}{entry.lot && <> · Điểm còn lại: {entry.lot.remaining} · Hết hạn: {formatDateTime(entry.lot.expires_at)}</>}</small></details>{entry.order_id && <> · <Link to={`/don-hang/${entry.order_id}`}>Xem đơn</Link></>}</td><td className={entry.points > 0 ? 'text-success fw-bold' : 'fw-bold'}>{entry.points > 0 ? '+' : ''}{entry.points}</td><td>{entry.rule?.name ?? '—'}</td></tr>)}</LoyaltyTable><LoyaltyPager pagination={pagination} onPage={(value) => { setLoading(true); setPage(value); }} /></LoyaltyPanel>}
-      {tab === 'rewards' && <div className="row g-3">{!rows.length && <p className="text-muted">Chương trình chưa mở phần thưởng. Bạn vẫn có thể tích lũy điểm.</p>}{rows.map((reward) => <div className="col-md-6" key={String(reward.id)}><LoyaltyPanel title={reward.name}><p>{reward.description || `Phiếu ưu đãi giảm ${formatCurrency(reward.discount_value)}`}</p><p>Đơn từ {formatCurrency(reward.min_order_value)} · Phiếu ưu đãi có hạn {reward.voucher_days} ngày từ lúc đổi.</p><p className="small text-muted">Chi tiêu xét hạng tối thiểu: {formatCurrency(reward.minimum_tier_spend)} · Còn {reward.stock} phần.</p><div className="d-flex align-items-center justify-content-between"><strong>{reward.points_cost} điểm</strong><button className="btn btn-primary" disabled={busy || !member || member.availablePoints < reward.points_cost || Number(member.qualifying_spend) < Number(reward.minimum_tier_spend) || reward.stock < 1} onClick={() => { if (!window.confirm(`Đổi ${reward.name} với ${reward.points_cost} điểm?`)) return; void mutate(async () => { const attempt = redemptionKey(user.id, reward.id); await api.redeemLoyaltyReward(reward.id, attempt.key); attempt.clear(); }, 'Đổi thưởng thành công. Xem mã tại mục Phiếu ưu đãi đã đổi.'); }}>Đổi ưu đãi</button></div></LoyaltyPanel></div>)}</div>}
+      {tab === 'rewards' && <div className="row g-3">{!rows.length && <p className="text-muted">Chương trình chưa mở phần thưởng. Bạn vẫn có thể tích lũy điểm.</p>}{rows.map((reward) => { const unavailable = rewardUnavailable(reward, member); return <div className="col-md-6" key={String(reward.id)}><LoyaltyPanel title={reward.name}><p>{reward.description || `Phiếu ưu đãi giảm ${formatCurrency(reward.discount_value)}`}</p><p>Đơn từ {formatCurrency(reward.min_order_value)} · Phiếu ưu đãi có hạn {reward.voucher_days} ngày từ lúc đổi.</p><p className="small text-muted">Chi tiêu xét hạng tối thiểu: {formatCurrency(reward.minimum_tier_spend)} · Còn {reward.stock} phần.</p><div className="d-flex align-items-center justify-content-between"><strong>{reward.points_cost} điểm</strong><button className="btn btn-primary" disabled={busy || Boolean(unavailable)} onClick={() => { if (!window.confirm(`Đổi ${reward.name} với ${reward.points_cost} điểm?`)) return; void mutate(async () => { const attempt = redemptionKey(user.id, reward.id); await api.redeemLoyaltyReward(reward.id, attempt.key); attempt.clear(); }, 'Đổi ưu đãi thành công. Phiếu của bạn đã sẵn sàng bên dưới.', 'redemptions'); }}>{busy ? 'Đang xử lý…' : 'Đổi ưu đãi'}</button></div>{unavailable && <p className="small text-muted mt-2 mb-0">{unavailable}</p>}</LoyaltyPanel></div>; })}</div>}
       {tab === 'redemptions' && <LoyaltyPanel title="Phiếu ưu đãi đã đổi"><LoyaltyTable columns={['Phần thưởng', 'Mã riêng của bạn', 'Điểm đã dùng', 'Hạn dùng', 'Trạng thái']} empty={!rows.length}>{rows.map((row) => {
         const usable = row.coupon?.status === 'ACTIVE' && row.coupon.used_count === 0 && new Date(row.expires_at) > new Date();
-        return <tr key={String(row.id)}><td>{row.reward.name}</td><td><code className="text-break">{row.coupon_code}</code>{usable && <Link className="d-block mt-1" to={`/thanh-toan?coupon=${encodeURIComponent(row.coupon_code)}`}>Dùng khi thanh toán</Link>}</td><td>{row.points_spent}</td><td>{formatDateTime(row.expires_at)}</td><td>{row.coupon?.used_count > 0 ? 'Đã sử dụng' : usable ? 'Có thể sử dụng' : 'Hết hiệu lực'}</td></tr>;
+        return <tr key={String(row.id)}><td>{row.reward.name}</td><td><code className="text-break">{row.coupon_code}</code><button type="button" className="btn btn-sm btn-outline-secondary ms-2" aria-label={`Sao chép mã ${row.coupon_code}`} onClick={async () => { try { await navigator.clipboard.writeText(row.coupon_code); setNotice('Đã sao chép mã ưu đãi.'); } catch { setError('Chưa sao chép được. Bạn có thể chọn mã ưu đãi và sao chép thủ công.'); } }}>Sao chép</button>{usable && <Link className="d-block mt-1" to={`/thanh-toan?coupon=${encodeURIComponent(row.coupon_code)}`}>Dùng khi thanh toán</Link>}</td><td>{row.points_spent}</td><td>{formatDateTime(row.expires_at)}</td><td>{row.coupon?.used_count > 0 ? 'Đã sử dụng' : usable ? 'Có thể sử dụng' : 'Hết hiệu lực'}</td></tr>;
       })}</LoyaltyTable><LoyaltyPager pagination={pagination} onPage={(value) => { setLoading(true); setPage(value); }} /></LoyaltyPanel>}
       {tab === 'complaints' && <>
         {member && <LoyaltyPanel title="Gửi khiếu nại"><form onSubmit={(event) => { event.preventDefault(); void mutate(async () => { await api.createLoyaltyComplaint({ type: complaint.type, message: complaint.message, ...(complaint.orderId.trim() ? { orderId: complaint.orderId.trim() } : {}) }); setComplaint((prev) => ({ ...prev, message: '', orderId: '' })); }, 'Đã tiếp nhận khiếu nại của bạn.'); }} className="row g-3">

@@ -16,7 +16,7 @@ import {
   MOMO_RESPONSE_FIELDS,
   signMomo,
   verifyMomo,
-} from './momo-signature';
+} from './payment-signatures';
 
 const eligible = [
   'PENDING',
@@ -26,9 +26,11 @@ const eligible = [
   'DELIVERED',
   'COMPLETED',
 ];
+
 const terminalFailures = new Set([
   1001, 1002, 1003, 1004, 1005, 1006, 1007, 1017, 1026,
 ]);
+
 @Injectable()
 export class MomoService {
   constructor(

@@ -1,4 +1,10 @@
-/// Format tiền tệ VND: 1234500 -> "1.234.500₫"
+num number(dynamic value) => num.tryParse('$value') ?? 0;
+
+String formatDate(dynamic value) {
+  final parsed = DateTime.tryParse('$value')?.toLocal();
+  return parsed == null ? '' : '${parsed.day}/${parsed.month}/${parsed.year}';
+}
+
 String valueLabel(dynamic value) {
   const labels = {
     'ADMIN': 'Quản trị viên',
@@ -27,12 +33,13 @@ String valueLabel(dynamic value) {
     'BANK': 'Chuyển khoản',
     'BANK_TRANSFER': 'Chuyển khoản',
     'CREDIT_CARD': 'Thẻ thanh toán',
+    'VNPAY': 'VNPay',
     'EARN': 'Tích điểm',
     'REDEEM': 'Đổi thưởng',
     'EXPIRE': 'Hết hạn',
     'REVERSAL': 'Thu hồi điểm',
     'ADJUSTMENT': 'Điều chỉnh điểm',
-    'OPEN': 'Đã gửi',
+    'OPEN': 'Mới tiếp nhận',
     'IN_REVIEW': 'Đang xử lý',
     'RESOLVED': 'Đã giải quyết',
     'REJECTED': 'Đã từ chối',
@@ -69,36 +76,4 @@ String couponLabel(String discountType, num? discountValue) {
     return 'Giảm ${discountValue?.round() ?? 0}%';
   }
   return 'Giảm ${formatCurrency(discountValue ?? 0)}';
-}
-
-/// Coupon có áp dụng được cho đơn hàng không (chỉ để gợi ý UI —
-/// giá cuối do backend xác nhận).
-bool isCouponApplicable({
-  required String discountType,
-  required num? discountValue,
-  required num minOrderValue,
-  required num subtotal,
-}) {
-  return subtotal >= minOrderValue;
-}
-
-/// Số tiền giảm dự kiến (FREE_SHIP trả về 0 — xử lý phí ship riêng).
-num calcCouponDiscount({
-  required String discountType,
-  required num? discountValue,
-  required num? maxDiscount,
-  required num subtotal,
-}) {
-  if (discountType == 'FIXED') {
-    final value = discountValue ?? 0;
-    return value > subtotal ? subtotal : value;
-  }
-
-  if (discountType == 'PERCENT') {
-    final raw = subtotal * (discountValue ?? 0) / 100;
-    final capped = maxDiscount != null && raw > maxDiscount ? maxDiscount : raw;
-    return capped.round();
-  }
-
-  return 0;
 }
